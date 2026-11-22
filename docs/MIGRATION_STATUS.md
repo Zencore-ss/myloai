@@ -2,12 +2,12 @@
 
 ## Current state
 
-The active repository is **GR00T-User-706/myloai**. The former **GR00T-User-706/locallama-gui** repository is the historical archive and is not the active development target.
+The active repository is **Zencore-ss/myloai**. The former **the former legacy repository** repository is the historical archive and is not the active development target.
 
 The intentional source-tree break changed the application from:
 
 ```text
-locallama_gui/
+legacy_pkg/
     ...
 ```
 
@@ -30,15 +30,15 @@ The repository root is **not** intended to become `myloai/myloai/`. The outer di
 
 ## Intentional breaking contract
 
-The former `locallama_gui` namespace and `locallama-gui` source-path contract are no longer compatibility targets.
+The former `legacy_pkg` namespace and `legacy-repo` source-path contract are no longer compatibility targets.
 
 The migration intentionally breaks:
 
-- Python imports using `locallama_gui.*`
-- `python -m locallama_gui`
-- package discovery for `locallama_gui`
-- the legacy `locallama-gui` console entry point
-- source-tree paths rooted at `locallama_gui/`
+- Python imports using `legacy_pkg.*`
+- `python -m legacy_pkg`
+- package discovery for `legacy_pkg`
+- the legacy `legacy-repo` console entry point
+- source-tree paths rooted at `legacy_pkg/`
 - build scripts that assume the old repository name or source directory
 
 The canonical Python namespace is now `myloai`.
@@ -58,14 +58,14 @@ myloai
 ## Repairs completed in this pass
 
 - Moved the Python source package from `src/*` to `src/myloai/*`.
-- Updated active Python imports and test imports from `locallama_gui` to `myloai`.
+- Updated active Python imports and test imports from `legacy_pkg` to `myloai`.
 - Updated setuptools discovery to search `src/` for `myloai*`.
-- Removed the legacy `locallama-gui` console-script entry point.
+- Removed the legacy `legacy-repo` console-script entry point.
 - Updated PyInstaller to discover and freeze `src/myloai/`.
 - Corrected the PyInstaller repository-root calculation.
 - Updated the Linux, Windows, and macOS packaging workflow to stop invoking the obsolete icon generator.
 - Updated Linux repository/archive URLs to the active repository.
-- Updated development launcher installation to install `myloai` instead of `run-locallama`.
+- Updated development launcher installation to install `myloai` instead of the removed legacy launcher command.
 - Updated desktop-entry installation to use the canonical `myloai.desktop`.
 - Moved the brand-board reference to `docs/branding/myloai-brand-board.png`.
 - Assigned canonical names to the seven MyLoAI artwork assets.
@@ -79,7 +79,7 @@ This pass deliberately did **not** perform the entire documentation and legacy-a
 
 Remaining work includes:
 
-1. Rewrite current documentation that still describes `locallama_gui` as the active package.
+1. Rewrite current documentation that still describes `legacy_pkg` as the active package.
 2. Audit and update `MIGRATION_MANIFEST.md`, which describes the previous compatibility strategy.
 3. Remove the obsolete generated-icon utility after all build references are gone.
 4. Remove obsolete generated SVG/icon artifacts after packaging has been verified against the canonical PNG assets.

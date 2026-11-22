@@ -29,6 +29,6 @@ Use this custom agent when you want a focused, repository-aware Python code revi
 
 ## Example prompts
 
-- "Review `locallama_gui/ui/main_window.py` for broken or risky lines."
+- "Review `src/myloai/ui/main_window.py` for broken or risky lines."
 - "Analyze the repo codebase and comment on any high-risk Python code."
-- "Flag unsafe or broken patterns in `locallama_gui/backends/ollama.py`."
+- "Flag unsafe or broken patterns in `src/myloai/backends/ollama.py`."

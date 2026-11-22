@@ -34,13 +34,13 @@ jobs:
           import tomllib
           data = tomllib.loads(pathlib.Path('pyproject.toml').read_text())
           expected_version = data['project']['version']
-          assert data['project']['name'] == 'locallama-gui'
-          dist = importlib.metadata.metadata('locallama-gui')
-          assert dist['Name'] == 'locallama-gui'
+          assert data['project']['name'] == 'myloai'
+          dist = importlib.metadata.metadata('myloai')
+          assert dist['Name'] == 'myloai'
           assert dist['Version'] == expected_version
           scripts = importlib.metadata.entry_points(group='console_scripts')
-          names = {entry.name for entry in scripts if entry.name in {'myloai', 'locallama-gui'}}
-          assert names == {'myloai', 'locallama-gui'}
+          names = {entry.name for entry in scripts if entry.name in {'myloai'}}
+          assert names == {'myloai'}
           PY
       - name: Validate wheel payload
         run: |
@@ -51,7 +51,7 @@ jobs:
           wheel = next(Path('dist').glob('*.whl'))
           with zipfile.ZipFile(wheel) as zf:
               names = zf.namelist()
-              assert any(name.startswith('locallama_gui/') for name in names)
+              assert any(name.startswith('myloai/') for name in names)
               assert not any(name.startswith(('archive/', 'tests/', '.github/')) for name in names)
           PY
       - name: Upload Python distributions

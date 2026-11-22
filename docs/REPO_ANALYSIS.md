@@ -12,7 +12,7 @@ Scope: Current-state read-only audit findings and stabilization status.
 ## 1. Current project structure
 
 Primary maintained runtime package:
-- `locallama_gui/` (PySide6 desktop app, backends, core config/domain/managers, controllers, workers, diagnostics, UI).
+- `legacy_pkg/` (PySide6 desktop app, backends, core config/domain/managers, controllers, workers, diagnostics, UI).
 
 Supporting project files:
 - `pyproject.toml` (packaging + version + scripts)
@@ -32,7 +32,7 @@ Archived legacy tree:
 ## 2. Current version
 
 - `pyproject.toml`: `1.1.8`
-- `locallama_gui/__init__.py`: `1.1.8`
+- `legacy_pkg/__init__.py`: `1.1.8`
 - Changelog latest release: `1.1.8`
 
 ## 3. Security stabilization completed in 1.1.8
@@ -52,7 +52,7 @@ Archived legacy tree:
 
 ## 5. Remaining architecture hotspots
 
-- `locallama_gui/ui/main_window.py` remains large and mixes UI construction, lifecycle orchestration, diagnostics, backend refresh, and generation state.
+- `legacy_pkg/ui/main_window.py` remains large and mixes UI construction, lifecycle orchestration, diagnostics, backend refresh, and generation state.
 - Agent profiles are persisted and editable but remain only partially integrated with chat generation/tool execution.
 - Plugin trust is an explicit in-process trust boundary; plugins are not sandboxed.
 - OpenAI-compatible and llama.cpp providers intentionally share one backend implementation, but their feature parity with Ollama generation controls is narrower.

@@ -8,7 +8,7 @@
 - Tests for agent application, plugin registration cleanup, failed-activation rollback, and install validation.
 
 ### Fixed
-- Plugin modules were imported under the legacy `locallama_user_plugin_` name prefix; now `myloai_user_plugin_`.
+- Plugin modules were imported under the obsolete legacy name prefix; now `myloai_user_plugin_`.
 - Sample plugin referenced a nonexistent `main_window.terminal` attribute; it now uses the diagnostics `console_view`.
 
 ### Documentation
@@ -18,8 +18,8 @@
 ## [2.0.0] - 2026-11-08
 
 ### Changed
-- Broke the former `locallama_gui` Python namespace and established the conventional `src/myloai/` source-package layout.
-- Updated the application, tests, console entry point, PyInstaller specification, Linux launchers, and packaging metadata to use the `myloai` Python namespace and active `GR00T-User-706/myloai` repository.
+- Broke the former `legacy_pkg` Python namespace and established the conventional `src/myloai/` source-package layout.
+- Updated the application, tests, console entry point, PyInstaller specification, Linux launchers, and packaging metadata to use the `myloai` Python namespace and active `Zencore-ss/myloai` repository.
 - Replaced the old generated-icon build step with the canonical MyLoAI artwork assets and organized the brand-board reference under `docs/branding/`.
 - Removed the duplicate production window-title override from `production_fixes.py`; the main window now owns its canonical title directly.
 - Synchronized runtime version metadata with the project version `2.0.0`.
@@ -27,11 +27,11 @@
 ### Fixed
 - Repaired imports and test monkeypatch targets broken by the intentional source-directory rename to `src/`.
 - Repaired the PyInstaller source path and package discovery for the new `src/myloai/` layout.
-- Repaired development launcher and desktop-entry installation paths that still targeted the removed `run-locallama`/`locallama-gui` contract.
-- Updated runtime application identity and log filename from the obsolete LocalLama identity to MyLoAI.
+- Repaired development launcher and desktop-entry installation paths that still targeted the removed legacy launcher/desktop-entry contract.
+- Updated runtime application identity and log filename from the obsolete legacy identity to MyLoAI.
 
 ### Migration Status
-- The previous `locallama-gui` repository and `locallama_gui` namespace are historical only. The active repository is `GR00T-User-706/myloai`.
+- The previous `legacy-repo` repository and `legacy_pkg` namespace are historical only. The active repository is `Zencore-ss/myloai`.
 - No user-data compatibility migration is being maintained during this development reset. Existing local configuration/data paths are intentionally outside the current compatibility contract.
 
 ### Documentation

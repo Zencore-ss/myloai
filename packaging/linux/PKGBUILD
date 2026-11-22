@@ -3,7 +3,7 @@ pkgver=2.1.0
 pkgrel=2
 pkgdesc='MyLoAI Control Center'
 arch=('x86_64')
-url='https://github.com/GR00T-User-706/myloai'
+url='https://github.com/Zencore-ss/myloai'
 license=('custom')
 
 depends=(
@@ -31,7 +31,7 @@ makedepends=(
 )
 
 source=(
-    "myloai-${pkgver}.tar.gz::https://github.com/GR00T-User-706/myloai/archive/refs/heads/main.tar.gz"
+    "myloai-${pkgver}.tar.gz::https://github.com/Zencore-ss/myloai/archive/refs/heads/main.tar.gz"
 )
 
 sha256sums=('SKIP')

@@ -3,7 +3,7 @@ name: Active CI
 on:
   pull_request:
     paths:
-      - 'locallama_gui/**'
+      - 'src/**'
       - 'pyproject.toml'
       - 'requirements.txt'
       - '.github/workflows/**'
@@ -11,7 +11,7 @@ on:
     branches:
       - main
     paths:
-      - 'locallama_gui/**'
+      - 'src/**'
       - 'pyproject.toml'
       - 'requirements.txt'
       - '.github/workflows/**'
@@ -32,4 +32,4 @@ jobs:
           python-version: '3.13'
 
       - name: Validate active package imports
-        run: python -m compileall -q locallama_gui
+        run: python -m compileall -q src

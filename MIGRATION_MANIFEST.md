@@ -1,6 +1,6 @@
 # Historical Migration Manifest
 
-> **Historical artifact:** This file documents the migration staging process from the former `GR00T-User-706/locallama-gui` repository. It is provenance documentation, not the current source-tree or package contract. The active package is `src/myloai/` in `GR00T-User-706/myloai`.
+> **Historical artifact:** This file documents the migration staging process from the former legacy repository. It is provenance documentation, not the current source-tree or package contract. The active package is `src/myloai/` in `Zencore-ss/myloai`.
 
 ---
 
@@ -8,13 +8,13 @@
 
 ## Purpose
 
-This manifest inventories the files staged for migration from the historical `GR00T-User-706/locallama-gui` repository into a clean MyLoAI repository.
+This manifest inventories the files staged for migration from the historical `the former legacy repository` repository into a clean MyLoAI repository.
 
-- **Source repository:** `GR00T-User-706/locallama-gui`
+- **Source repository:** `the former legacy repository`
 - **Source branch:** `main`
 - **Application version at inspection:** `1.2.12`
 - **Application package:** `myloai`
-- **Python import namespace:** `locallama_gui` (retained for compatibility)
+- **Python import namespace:** `legacy_pkg` (retained for compatibility)
 - **Product display name:** MyLoAI Control Center
 - **Staging root:** `migrate/`
 
@@ -69,34 +69,34 @@ Each row identifies the original source path, the destination path, and the orig
 | `docs/QA_CHECKLIST.md` | `migrate/docs/QA_CHECKLIST.md` | Copied; exact Git blob match | `d2acc965520de6a42e60cac84e6dcd0205680d43` |
 | `docs/REPO_ANALYSIS.md` | `migrate/docs/REPO_ANALYSIS.md` | Copied; exact Git blob match | `52ed5ef8b46a8d913d796a8ef0c76557cd20f425` |
 | `docs/VERSIONING.md` | `migrate/docs/VERSIONING.md` | Copied; exact Git blob match | `88c8ead46d7efd72c5709a4a8ef4bb74e93be6fd` |
-| `locallama_gui/__init__.py` | `migrate/locallama_gui/__init__.py` | Copied; exact Git blob match | `edfbe323110c60f04cf3e055b7a1e3f2ddd6e73e` |
-| `locallama_gui/__main__.py` | `migrate/locallama_gui/__main__.py` | Copied; exact Git blob match | `57f6dc90aec186ce220d37a2590d5385e64d8a56` |
-| `locallama_gui/app.py` | `migrate/locallama_gui/app.py` | Copied; exact Git blob match | `ee95be84c9f461fdf11e3ab0fd23df8b6261c6ac` |
-| `locallama_gui/backends/__init__.py` | `migrate/locallama_gui/backends/__init__.py` | Copied; exact Git blob match | `e69de29bb2d1d6434b8b29ae775ad8c2e48c5391` |
-| `locallama_gui/backends/base.py` | `migrate/locallama_gui/backends/base.py` | Copied; exact Git blob match | `aeffc1b15c6f0e3423b8f19cf5d482707ed22c24` |
-| `locallama_gui/backends/manager.py` | `migrate/locallama_gui/backends/manager.py` | Copied; exact Git blob match | `0705d1d2ef742968512dd4ad486f1de19c107e0b` |
-| `locallama_gui/backends/ollama.py` | `migrate/locallama_gui/backends/ollama.py` | Copied; exact Git blob match | `38cb88b73d7b681a42acba1af4df1d25b6212cd9` |
-| `locallama_gui/backends/openai.py` | `migrate/locallama_gui/backends/openai.py` | Copied; exact Git blob match | `5b16668da9c66c2fa9ff7af5a78170054ebf3b72` |
-| `locallama_gui/core/__init__.py` | `migrate/locallama_gui/core/__init__.py` | Copied; exact Git blob match | `e69de29bb2d1d6434b8b29ae775ad8c2e48c5391` |
-| `locallama_gui/core/config.py` | `migrate/locallama_gui/core/config.py` | Copied; exact Git blob match | `2d6283ec89786f509fa5089c706c422cafb365dd` |
-| `locallama_gui/core/domain.py` | `migrate/locallama_gui/core/domain.py` | Copied; exact Git blob match | `7ffc1d0455fbfb85d3b56e1668b4838d9f08235e` |
-| `locallama_gui/core/logging.py` | `migrate/locallama_gui/core/logging.py` | Copied; exact Git blob match | `c8a6481c0de5cb7d5dc93c19f5cb02dce7aef123` |
-| `locallama_gui/core/managers.py` | `migrate/locallama_gui/core/managers.py` | Copied; exact Git blob match | `25d7cbe852cfc3d45fec84a72b1383216e5fc29f` |
-| `locallama_gui/plugins/__init__.py` | `migrate/locallama_gui/plugins/__init__.py` | Copied; exact Git blob match | `e69de29bb2d1d6434b8b29ae775ad8c2e48c5391` |
-| `locallama_gui/ui/__init__.py` | `migrate/locallama_gui/ui/__init__.py` | Copied; exact Git blob match | `e69de29bb2d1d6434b8b29ae775ad8c2e48c5391` |
-| `locallama_gui/ui/chat_view.py` | `migrate/locallama_gui/ui/chat_view.py` | Copied; exact Git blob match | `2c1e2ca6d82e77f06ae4b8cd9b61e261630dca55` |
-| `locallama_gui/ui/controllers/__init__.py` | `migrate/locallama_gui/ui/controllers/__init__.py` | Copied; exact Git blob match | `9edfe16013ed5933e063923e497dd081e9f6bad3` |
-| `locallama_gui/ui/controllers/chat_controller.py` | `migrate/locallama_gui/ui/controllers/chat_controller.py` | Copied; exact Git blob match | `7e1a65f991e56d2b2be8e5c0f8ef1a9037842375` |
-| `locallama_gui/ui/controllers/model_controller.py` | `migrate/locallama_gui/ui/controllers/model_controller.py` | Copied; exact Git blob match | `450118239144107578bf661df589d8fd4f6ac777` |
-| `locallama_gui/ui/controllers/plugin_controller.py` | `migrate/locallama_gui/ui/controllers/plugin_controller.py` | Copied; exact Git blob match | `83a35392322f4ceb60f59cd0f62b91f3330104b3` |
-| `locallama_gui/ui/diagnostics.py` | `migrate/locallama_gui/ui/diagnostics.py` | Copied; exact Git blob match | `89eaf383fc4eca32e32dbedbf5a0006170c0a521` |
-| `locallama_gui/ui/dialogs.py` | `migrate/locallama_gui/ui/dialogs.py` | Copied; exact Git blob match | `b33fc7733ea817f051046b6122dceff3dc83ecf8` |
-| `locallama_gui/ui/main_window.py` | `migrate/locallama_gui/ui/main_window.py` | Copied; exact Git blob match | `bfbb135264879c51a87cfd5d318296cfa6ca9f65` |
-| `locallama_gui/ui/model_browser.py` | `migrate/locallama_gui/ui/model_browser.py` | Copied; exact Git blob match | `3ec2b13683d49d7a95fed5e8ae5ac606d478a473` |
-| `locallama_gui/ui/production_fixes.py` | `migrate/locallama_gui/ui/production_fixes.py` | Copied; exact Git blob match | `cfe4ff1fad49b2d85b26124aec8f83277766bf18` |
-| `locallama_gui/ui/setup_wizard.py` | `migrate/locallama_gui/ui/setup_wizard.py` | Copied; exact Git blob match | `e072ff7fe99261a83438e47822351a837ee6b6b2` |
-| `locallama_gui/ui/theme.py` | `migrate/locallama_gui/ui/theme.py` | Copied; exact Git blob match | `a867a720242616fb37693221d973afb3985220e8` |
-| `locallama_gui/ui/workers.py` | `migrate/locallama_gui/ui/workers.py` | Copied; exact Git blob match | `55cec059d90a19fe878284b18c2a5c29f473bc19` |
+| `legacy_pkg/__init__.py` | `migrate/legacy_pkg/__init__.py` | Copied; exact Git blob match | `edfbe323110c60f04cf3e055b7a1e3f2ddd6e73e` |
+| `legacy_pkg/__main__.py` | `migrate/legacy_pkg/__main__.py` | Copied; exact Git blob match | `57f6dc90aec186ce220d37a2590d5385e64d8a56` |
+| `legacy_pkg/app.py` | `migrate/legacy_pkg/app.py` | Copied; exact Git blob match | `ee95be84c9f461fdf11e3ab0fd23df8b6261c6ac` |
+| `legacy_pkg/backends/__init__.py` | `migrate/legacy_pkg/backends/__init__.py` | Copied; exact Git blob match | `e69de29bb2d1d6434b8b29ae775ad8c2e48c5391` |
+| `legacy_pkg/backends/base.py` | `migrate/legacy_pkg/backends/base.py` | Copied; exact Git blob match | `aeffc1b15c6f0e3423b8f19cf5d482707ed22c24` |
+| `legacy_pkg/backends/manager.py` | `migrate/legacy_pkg/backends/manager.py` | Copied; exact Git blob match | `0705d1d2ef742968512dd4ad486f1de19c107e0b` |
+| `legacy_pkg/backends/ollama.py` | `migrate/legacy_pkg/backends/ollama.py` | Copied; exact Git blob match | `38cb88b73d7b681a42acba1af4df1d25b6212cd9` |
+| `legacy_pkg/backends/openai.py` | `migrate/legacy_pkg/backends/openai.py` | Copied; exact Git blob match | `5b16668da9c66c2fa9ff7af5a78170054ebf3b72` |
+| `legacy_pkg/core/__init__.py` | `migrate/legacy_pkg/core/__init__.py` | Copied; exact Git blob match | `e69de29bb2d1d6434b8b29ae775ad8c2e48c5391` |
+| `legacy_pkg/core/config.py` | `migrate/legacy_pkg/core/config.py` | Copied; exact Git blob match | `2d6283ec89786f509fa5089c706c422cafb365dd` |
+| `legacy_pkg/core/domain.py` | `migrate/legacy_pkg/core/domain.py` | Copied; exact Git blob match | `7ffc1d0455fbfb85d3b56e1668b4838d9f08235e` |
+| `legacy_pkg/core/logging.py` | `migrate/legacy_pkg/core/logging.py` | Copied; exact Git blob match | `c8a6481c0de5cb7d5dc93c19f5cb02dce7aef123` |
+| `legacy_pkg/core/managers.py` | `migrate/legacy_pkg/core/managers.py` | Copied; exact Git blob match | `25d7cbe852cfc3d45fec84a72b1383216e5fc29f` |
+| `legacy_pkg/plugins/__init__.py` | `migrate/legacy_pkg/plugins/__init__.py` | Copied; exact Git blob match | `e69de29bb2d1d6434b8b29ae775ad8c2e48c5391` |
+| `legacy_pkg/ui/__init__.py` | `migrate/legacy_pkg/ui/__init__.py` | Copied; exact Git blob match | `e69de29bb2d1d6434b8b29ae775ad8c2e48c5391` |
+| `legacy_pkg/ui/chat_view.py` | `migrate/legacy_pkg/ui/chat_view.py` | Copied; exact Git blob match | `2c1e2ca6d82e77f06ae4b8cd9b61e261630dca55` |
+| `legacy_pkg/ui/controllers/__init__.py` | `migrate/legacy_pkg/ui/controllers/__init__.py` | Copied; exact Git blob match | `9edfe16013ed5933e063923e497dd081e9f6bad3` |
+| `legacy_pkg/ui/controllers/chat_controller.py` | `migrate/legacy_pkg/ui/controllers/chat_controller.py` | Copied; exact Git blob match | `7e1a65f991e56d2b2be8e5c0f8ef1a9037842375` |
+| `legacy_pkg/ui/controllers/model_controller.py` | `migrate/legacy_pkg/ui/controllers/model_controller.py` | Copied; exact Git blob match | `450118239144107578bf661df589d8fd4f6ac777` |
+| `legacy_pkg/ui/controllers/plugin_controller.py` | `migrate/legacy_pkg/ui/controllers/plugin_controller.py` | Copied; exact Git blob match | `83a35392322f4ceb60f59cd0f62b91f3330104b3` |
+| `legacy_pkg/ui/diagnostics.py` | `migrate/legacy_pkg/ui/diagnostics.py` | Copied; exact Git blob match | `89eaf383fc4eca32e32dbedbf5a0006170c0a521` |
+| `legacy_pkg/ui/dialogs.py` | `migrate/legacy_pkg/ui/dialogs.py` | Copied; exact Git blob match | `b33fc7733ea817f051046b6122dceff3dc83ecf8` |
+| `legacy_pkg/ui/main_window.py` | `migrate/legacy_pkg/ui/main_window.py` | Copied; exact Git blob match | `bfbb135264879c51a87cfd5d318296cfa6ca9f65` |
+| `legacy_pkg/ui/model_browser.py` | `migrate/legacy_pkg/ui/model_browser.py` | Copied; exact Git blob match | `3ec2b13683d49d7a95fed5e8ae5ac606d478a473` |
+| `legacy_pkg/ui/production_fixes.py` | `migrate/legacy_pkg/ui/production_fixes.py` | Copied; exact Git blob match | `cfe4ff1fad49b2d85b26124aec8f83277766bf18` |
+| `legacy_pkg/ui/setup_wizard.py` | `migrate/legacy_pkg/ui/setup_wizard.py` | Copied; exact Git blob match | `e072ff7fe99261a83438e47822351a837ee6b6b2` |
+| `legacy_pkg/ui/theme.py` | `migrate/legacy_pkg/ui/theme.py` | Copied; exact Git blob match | `a867a720242616fb37693221d973afb3985220e8` |
+| `legacy_pkg/ui/workers.py` | `migrate/legacy_pkg/ui/workers.py` | Copied; exact Git blob match | `55cec059d90a19fe878284b18c2a5c29f473bc19` |
 | `packaging/README.md` | `migrate/packaging/README.md` | Copied; exact Git blob match | `045731a5f703adb451f2a9dfb49d783022742d45` |
 | `packaging/RELEASE_BUILD_SPEC.md` | `migrate/packaging/RELEASE_BUILD_SPEC.md` | Copied; exact Git blob match | `fb5b024f38d46e9e8a038e1a34079a63837be93e` |
 | `packaging/RELEASE_PAYLOAD.md` | `migrate/packaging/RELEASE_PAYLOAD.md` | Copied; exact Git blob match | `4ff84de72996c021d2b47d716c96273de32afd04` |
@@ -108,10 +108,10 @@ Each row identifies the original source path, the destination path, and the orig
 | `packaging/linux/appimage/README.md` | `migrate/packaging/linux/appimage/README.md` | Copied; exact Git blob match | `7849f3fa88b49ae88ef93dd6c14731b8b904c0e3` |
 | `packaging/linux/appimage/build-appimage.sh` | `migrate/packaging/linux/appimage/build-appimage.sh` | Copied; exact Git blob match | `0cfc934753bb9cb4c8cfb40e1efa65c00ef36883` |
 | `packaging/linux/appimage/myloai.svg` | `migrate/packaging/linux/appimage/myloai.svg` | Copied; exact Git blob match | `574d3465b2cdd6e610df4a46af40557e742e5f8c` |
-| `packaging/linux/com.github.gr00t-user-706.locallama-gui.desktop` | `migrate/packaging/linux/com.github.gr00t-user-706.locallama-gui.desktop` | Copied; exact Git blob match | `e59f966dd6252a466007b8247464339a3be45a33` |
+| `packaging/linux/com.github.zencore-ss.legacy-repo.desktop` | `migrate/packaging/linux/com.github.zencore-ss.legacy-repo.desktop` | Copied; exact Git blob match | `e59f966dd6252a466007b8247464339a3be45a33` |
 | `packaging/linux/debian/README.Debian` | `migrate/packaging/linux/debian/README.Debian` | Copied; exact Git blob match | `ff9d733b73f2422355606f36dc17666c115540ae` |
 | `packaging/linux/debian/build-deb.sh` | `migrate/packaging/linux/debian/build-deb.sh` | Copied; exact Git blob match | `64fe1b45c6be6ae09385689989c0e29671e97cfe` |
-| `packaging/linux/icons/com.github.gr00t-user-706.locallama-gui.svg` | `migrate/packaging/linux/icons/com.github.gr00t-user-706.locallama-gui.svg` | Copied; exact Git blob match | `b53a0fd2c026559e21d80e76fdf8667c52cb5ff9` |
+| `packaging/linux/icons/com.github.zencore-ss.legacy-repo.svg` | `migrate/packaging/linux/icons/com.github.zencore-ss.legacy-repo.svg` | Copied; exact Git blob match | `b53a0fd2c026559e21d80e76fdf8667c52cb5ff9` |
 | `packaging/linux/install-myloai.sh` | `migrate/packaging/linux/install-myloai.sh` | Copied; exact Git blob match | `4249888148abc8b49cb048000d6478047d587dbe` |
 | `packaging/linux/myloai` | `migrate/packaging/linux/myloai` | Copied; exact Git blob match | `66d555fc3322726fa1e706c1d575ddb21805f6aa` |
 | `packaging/linux/myloai.1` | `migrate/packaging/linux/myloai.1` | Copied; exact Git blob match | `324ccfdb5a496311a091c692589c80a4b56d407a` |
@@ -170,7 +170,7 @@ These items were not copied because they are not required to build, install, tes
 
 | Source path/pattern | Reason |
 |---|---|
-| `archive/**` | Historical/legacy implementations and retired experiments. Not part of the active `locallama_gui` runtime or current production payload. |
+| `archive/**` | Historical/legacy implementations and retired experiments. Not part of the active `legacy_pkg` runtime or current production payload. |
 | `docs/API_Docs/**` | Historical forensic censuses, duplicate codebase mappings, and audit reports rather than current application requirements. |
 | `docs/deep-research-report*.md` | Research notes, not current runtime, build, or user documentation. |
 | `docs/STATE_OF_REPO.md` | Repository-state snapshot; not a build or runtime dependency. |
@@ -185,10 +185,10 @@ No files were excluded because they were inconvenient to copy. The exclusions ar
 
 ## Important migration dependencies and observations
 
-1. **Application source:** all files under `locallama_gui/` were copied, including backend implementations, UI, controllers, configuration, persistence, plugin manager, and launch entry points.
+1. **Application source:** all files under `legacy_pkg/` were copied, including backend implementations, UI, controllers, configuration, persistence, plugin manager, and launch entry points.
 2. **Python metadata:** `pyproject.toml`, `requirements.txt`, and `VERSION` were copied unchanged. The project metadata currently declares version `1.2.12`.
-3. **Launch paths:** `myloai`, compatibility entry point `locallama-gui`, and `python -m locallama_gui` are represented in the copied package metadata and launcher sources.
-4. **Configuration/data compatibility:** current `platformdirs` paths and the `locallama-gui` application identifier are preserved. Do not rename these paths during migration without an explicit data-migration plan.
+3. **Launch paths:** `myloai`, compatibility entry point `legacy-repo`, and `python -m legacy_pkg` are represented in the copied package metadata and launcher sources.
+4. **Configuration/data compatibility:** current `platformdirs` paths and the `legacy-repo` application identifier are preserved. Do not rename these paths during migration without an explicit data-migration plan.
 5. **Credential storage:** provider credentials use the operating-system keyring; the config JSON excludes API keys. Preserve this behavior.
 6. **Plugin trust:** discovery uses static manifest parsing; plugin execution requires trust and enablement. Preserve this boundary.
 7. **Packaging:** current Linux, Windows, macOS, Arch, Debian, AppImage, and PyInstaller definitions were copied as text. Their build status has not been revalidated in this staging operation.

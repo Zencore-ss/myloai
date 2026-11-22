@@ -57,7 +57,7 @@ Scope: Baseline production map for Phase 1 documentation sync.
 
 ## AUDIT SEQUENCE: 1
 
-- **Repository:** `GR00T-User-706/myloai`
+- **Repository:** `Zencore-ss/myloai`
 - **Repository-relative file:** `src/myloai/__main__.py`
 - **Filename:** `__main__.py`
 - **Language:** Python
@@ -230,7 +230,7 @@ STATUS: FULLY MAPPED
 
 ## AUDIT SEQUENCE: 2
 
-- **Repository:** `GR00T-User-706/myloai`
+- **Repository:** `Zencore-ss/myloai`
 - **Repository-relative file:** `src/myloai/app.py`
 - **Filename:** `app.py`
 - **Language:** Python
@@ -518,7 +518,7 @@ STATUS: FULLY MAPPED
 
 ## AUDIT SEQUENCE: 3
 
-- **Repository:** `GR00T-User-706/myloai`
+- **Repository:** `Zencore-ss/myloai`
 - **Repository-relative file:** `src/myloai/core/config.py`
 - **Filename:** `config.py`
 - **Language:** Python
