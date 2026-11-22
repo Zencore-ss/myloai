@@ -8,7 +8,7 @@ MyLoAI Control Center is a PySide6 desktop control center for local Ollama and r
 
 `tests/`, `packaging/`, and `docs/` contain the active test, release, and documentation surfaces.
 
-The former `GR00T-User-706/locallama-gui` repository is the historical archive. The active repository is `GR00T-User-706/myloai`.
+The former `GR00T-User-706/locallama-gui` repository is the historical archive. The active repository is `Zencore-ss/myloai`.
 
 ## Development entry point
 
