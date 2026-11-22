@@ -10,7 +10,7 @@ from keyring.errors import KeyringError, PasswordDeleteError
 from platformdirs import user_config_dir, user_data_dir, user_log_dir
 
 APP_NAME = "MyLoAI"
-CONFIG_SCHEMA_VERSION = 2
+CONFIG_SCHEMA_VERSION = 3
 APP_SYSTEM_PROMPT = """You are running inside MyLoAI Control Center, a PySide6 desktop frontend for Ollama.
 
 You are the active local assistant selected by the user through MyLoAI.
@@ -67,6 +67,7 @@ class AppPaths:
     sessions_dir: Path
     prompts_dir: Path
     agents_dir: Path
+    skills_dir: Path
     modelfiles_dir: Path
     plugins_dir: Path
 
@@ -82,6 +83,7 @@ class AppPaths:
             sessions_dir=data_dir / "sessions",
             prompts_dir=data_dir / "prompts",
             agents_dir=data_dir / "agents",
+            skills_dir=data_dir / "skills",
             modelfiles_dir=data_dir / "modelfiles",
             plugins_dir=data_dir / "plugins",
         )
@@ -97,6 +99,16 @@ class ProviderProfile:
     base_url: str = "http://localhost:11434"
     api_key: str = ""
     default_model: str = ""
+    enabled: bool = True
+
+
+@dataclass(slots=True)
+class McpServerConfig:
+    name: str = ""
+    command: str = ""
+    args: list[str] = field(default_factory=list)
+    env: dict[str, str] = field(default_factory=dict)
+    transport: str = "stdio"
     enabled: bool = True
 
 
@@ -170,6 +182,7 @@ class AppConfig:
     schema_version: int = CONFIG_SCHEMA_VERSION
     provider_profiles: list[ProviderProfile] = field(default_factory=lambda: [ProviderProfile()])
     active_provider: str = "Local Ollama"
+    mcp_servers: list[McpServerConfig] = field(default_factory=list)
     parameters: GenerationParameters = field(default_factory=GenerationParameters)
     parameter_presets: dict[str, dict[str, Any]] = field(default_factory=dict)
     enabled_plugins: dict[str, bool] = field(default_factory=dict)
@@ -191,9 +204,12 @@ class AppConfig:
                 f"Unsupported config schema version {version}; this application supports up to {CONFIG_SCHEMA_VERSION}."
             )
         migrated = version != CONFIG_SCHEMA_VERSION
-        if version == 1:
-            data = dict(data)
+        data = dict(data)
+        if version < 2:
             data["schema_version"] = 2
+        if version < 3:
+            data.setdefault("mcp_servers", [])
+            data["schema_version"] = 3
         return data, migrated
 
     @classmethod
@@ -228,6 +244,7 @@ class AppConfig:
             schema_version=CONFIG_SCHEMA_VERSION,
             provider_profiles=profiles or [ProviderProfile()],
             active_provider=data.get("active_provider", "Local Ollama"),
+            mcp_servers=[McpServerConfig(**item) for item in data.get("mcp_servers", [])],
             parameters=GenerationParameters(**data.get("parameters", {})),
             parameter_presets=data.get("parameter_presets", {}),
             enabled_plugins=data.get("enabled_plugins", {}),
@@ -260,6 +277,7 @@ class AppConfig:
                 for profile in self.provider_profiles
             ],
             "active_provider": self.active_provider,
+            "mcp_servers": [asdict(server) for server in self.mcp_servers],
             "parameters": asdict(self.parameters),
             "parameter_presets": self.parameter_presets,
             "enabled_plugins": self.enabled_plugins,

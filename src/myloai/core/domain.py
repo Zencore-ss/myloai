@@ -100,6 +100,16 @@ class PromptRecord:
 
 
 @dataclass(slots=True)
+class SkillRecord:
+    name: str
+    instructions: str
+    description: str = ""
+    version: str = "1.0.0"
+    tags: list[str] = field(default_factory=list)
+    id: str = field(default_factory=lambda: str(uuid.uuid4()))
+
+
+@dataclass(slots=True)
 class AgentProfile:
     name: str
     model: str = ""

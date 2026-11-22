@@ -6,13 +6,13 @@ Scope: Current repository versioning policy and synchronization rules.
 ## Current State Snapshot
 
 ### CONFIRMED
-- `pyproject.toml` version: `2.1.0`
-- `src/myloai/__init__.py` version: `2.1.0`
-- `CHANGELOG.md` latest version heading: `2.1.0` (dated 2026-11-22)
-- Linux Arch package version: `2.1.0`
-- Linux man page version: `2.1.0`
-- Windows installer fallback version: `2.1.0`
-- Linux packaging bundle manifest version: `2.1.0`
+- `pyproject.toml` version: `2.2.0`
+- `src/myloai/__init__.py` version: `2.2.0`
+- `CHANGELOG.md` latest version heading: `2.2.0` (dated 2026-11-22)
+- Linux Arch package version: `2.2.0`
+- Linux man page version: `2.2.0`
+- Windows installer fallback version: `2.2.0`
+- Linux packaging bundle manifest version: `2.2.0`
 - persisted configuration schema: `2`
 
 ### Source of truth

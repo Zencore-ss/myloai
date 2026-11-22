@@ -7,7 +7,12 @@ from typing import Any, ClassVar
 
 import httpx
 
-from myloai.backends.base import BackendStatus, LLMBackend
+from myloai.backends.base import (
+    BackendStatus,
+    LLMBackend,
+    normalize_tool_calls,
+    serialize_chat_messages,
+)
 from myloai.core.domain import ChatMessage, ModelInfo
 
 
@@ -66,13 +71,16 @@ class OllamaBackend(LLMBackend):
         options: dict[str, Any],
         stream: bool,
     ) -> dict[str, Any]:
-        return {
+        payload: dict[str, Any] = {
             "model": model,
-            "messages": [{"role": message.role, "content": message.content} for message in messages],
+            "messages": serialize_chat_messages(messages),
             "options": cls.sanitize_options(options),
             "stream": stream,
             **cls.sanitize_request_fields(options),
         }
+        if options.get("tools"):
+            payload["tools"] = options["tools"]
+        return payload
 
     async def test_connection(self) -> BackendStatus:
         started = time.perf_counter()
@@ -128,6 +136,22 @@ class OllamaBackend(LLMBackend):
                 response = await client.post(f"{self.base_url}/api/chat", json=payload)
                 response.raise_for_status()
                 yield response.json().get("message", {}).get("content", "")
+
+    async def chat_collect(
+        self,
+        model: str,
+        messages: list[ChatMessage],
+        options: dict[str, Any],
+    ) -> dict[str, Any]:
+        payload = self.build_chat_payload(model, messages, options, stream=False)
+        async with httpx.AsyncClient(timeout=None) as client:
+            response = await client.post(f"{self.base_url}/api/chat", json=payload)
+            response.raise_for_status()
+        data = response.json().get("message", {})
+        return {
+            "content": data.get("content", ""),
+            "tool_calls": normalize_tool_calls(data.get("tool_calls")),
+        }
 
     async def pull_model(self, name: str) -> AsyncIterator[str]:
         async for text in self._stream_endpoint("/api/pull", {"name": name, "stream": True}):

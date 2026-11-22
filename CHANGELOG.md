@@ -1,3 +1,23 @@
+## [2.2.0] - 2026-11-22
+
+### Added
+- **MCP (Model Context Protocol) support**: manage stdio MCP servers (MCP > MCP Servers...), auto-start enabled servers, discover their tools, and let chats use them — tools are sent in chat payloads and tool calls are executed through a tool registry in a bounded loop (`core/mcp.py`, `core/tools.py`).
+- **Skills**: skills are `SKILL.md` bundles managed in Skills > Skills Builder... and applied to a chat as its system prompt from the Skills menu or Skills dock (`SkillManager`).
+- **Learning guide**: Help > "What is all this? (Learning Guide)" opens a bundled plain-language explanation of providers, models, agents, skills, plugins, MCP, parameters, and diagnostics (`docs/LEARNING_GUIDE.md`, bundled in frozen builds).
+- New MCP and Skills menus; Skills dock panel; toolbar Agent dropdown (from 2.1.0 work).
+
+### Changed
+- **Menus are now built correctly in one place**: `MainWindow._build_menus()` owns the full menu structure and `ui/production_fixes.py` (the runtime patch layer) is deleted. Fixed in the base build: Settings "Model Settings" miswiring (now "AI Model Settings..."), fake Agents Import/Export, Developer "Request Inspector" being dropped, "Layout Presets" renamed to "Reset Layout", persisted Theme chooser, versioned About, and bundled-document paths that work in source and frozen builds.
+- GUI framework boundary: `core/`, `backends/`, and `ui/controllers/` no longer import PySide6 — controllers use window `Protocol` ports; enforced by `tests/test_architecture.py`. PySide6 remains the default UI adapter under `ui/`.
+- Config schema bumped to 3 with automatic migration adding `mcp_servers`.
+
+### Fixed
+- Zero remaining references to the former legacy `locallama` identity anywhere in the repo; repository URLs normalized to `Zencore-ss/myloai`.
+- Legacy CI repaired: `active-ci.yml` now targets `src/**`; `release-packaging.yml` asserts the `myloai` distribution identity and wheel payload instead of the removed legacy name (it was failing on every PR).
+
+### Documentation
+- `docs/MENU_MAP.md` rewritten as a per-item intended-vs-current contract; `docs/ARCHITECTURE.md` documents the UI-adapter boundary; `docs/CONFIG_SCHEMA.md` documents schema v3; `docs/FEATURE_MATRIX.md` records MCP, Skills, menus, and the learning guide; `docs/LEARNING_GUIDE.md` added and bundled into PyInstaller/packaging payloads.
+
 ## [2.1.0] - 2026-11-22
 
 ### Added

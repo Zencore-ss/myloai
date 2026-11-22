@@ -1,5 +1,8 @@
 # Production Code Map
 
+> **Note (2026-11-22, v2.2.0):** `src/myloai/ui/production_fixes.py` has been removed. Menus are now built correctly in a single place (`MainWindow._build_menus()`); see `docs/MENU_MAP.md`. Historical references to `apply_production_fixes` below describe the pre-2.2.0 state.
+
+
 Date: 2026-05-25
 Scope: Baseline production map for Phase 1 documentation sync.
 

@@ -10,7 +10,14 @@ from types import ModuleType
 from typing import Any, Protocol
 
 from myloai.core.config import AppConfig
-from myloai.core.domain import AgentProfile, ChatMessage, ChatSession, PromptRecord, now_iso
+from myloai.core.domain import (
+    AgentProfile,
+    ChatMessage,
+    ChatSession,
+    PromptRecord,
+    SkillRecord,
+    now_iso,
+)
 
 
 class SessionManager:
@@ -101,6 +108,115 @@ class AgentManager:
 
     def get(self, agent_id: str) -> AgentProfile | None:
         return next((a for a in self.list() if a.id == agent_id), None)
+
+
+class SkillManager:
+    """Stores skills as <skills_dir>/<id>/SKILL.md with a small frontmatter header."""
+
+    def __init__(self, config: AppConfig) -> None:
+        self.config = config
+        self.root = config.paths.skills_dir
+        self.root.mkdir(parents=True, exist_ok=True)
+
+    def _path(self, skill_id: str) -> Path:
+        return self.root / skill_id / "SKILL.md"
+
+    @staticmethod
+    def _serialize(skill: SkillRecord) -> str:
+        header = [
+            "---",
+            f"name: {skill.name}",
+            f"description: {skill.description}",
+            f"version: {skill.version}",
+            f"tags: {','.join(skill.tags)}",
+            "---",
+            "",
+            skill.instructions,
+            "",
+        ]
+        return "\n".join(header)
+
+    @staticmethod
+    def _parse(text: str, skill_id: str) -> SkillRecord:
+        lines = text.splitlines()
+        name = skill_id
+        description = ""
+        version = "1.0.0"
+        tags: list[str] = []
+        body_start = 0
+        if lines and lines[0].strip() == "---":
+            for idx, line in enumerate(lines[1:], start=1):
+                if line.strip() == "---":
+                    body_start = idx + 1
+                    break
+                if ":" in line:
+                    key, _, value = line.partition(":")
+                    key = key.strip().lower()
+                    value = value.strip()
+                    if key == "name":
+                        name = value or name
+                    elif key == "description":
+                        description = value
+                    elif key == "version":
+                        version = value or version
+                    elif key == "tags":
+                        tags = [t.strip() for t in value.split(",") if t.strip()]
+        instructions = "\n".join(lines[body_start:]).strip()
+        return SkillRecord(
+            name=name,
+            instructions=instructions,
+            description=description,
+            version=version,
+            tags=tags,
+            id=skill_id,
+        )
+
+    def list(self) -> list[SkillRecord]:
+        skills = []
+        for path in sorted(self.root.glob("*/SKILL.md")):
+            try:
+                skills.append(self._parse(path.read_text(encoding="utf-8"), path.parent.name))
+            except OSError:
+                continue
+        return skills
+
+    def get(self, skill_id: str) -> SkillRecord | None:
+        path = self._path(skill_id)
+        if not path.exists():
+            return None
+        return self._parse(path.read_text(encoding="utf-8"), skill_id)
+
+    def upsert(self, skill: SkillRecord) -> None:
+        path = self._path(skill.id)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(self._serialize(skill), encoding="utf-8")
+
+    def delete(self, skill_id: str) -> None:
+        path = self._path(skill_id)
+        if path.exists():
+            path.unlink()
+            try:
+                path.parent.rmdir()
+            except OSError:
+                pass
+
+    def import_file(self, path: Path) -> SkillRecord:
+        skill = self._parse(path.read_text(encoding="utf-8"), path.stem)
+        self.upsert(skill)
+        return skill
+
+    def export(self, skill: SkillRecord, path: Path) -> None:
+        path.write_text(self._serialize(skill), encoding="utf-8")
+
+
+def apply_skill_to_session(session: ChatSession, skill: SkillRecord) -> None:
+    """Apply a skill's instructions as the chat session's system prompt."""
+    session.system_prompt = skill.instructions
+    system_message = next((m for m in session.messages if m.role == "system"), None)
+    if system_message is not None:
+        system_message.content = skill.instructions
+    else:
+        session.messages.insert(0, ChatMessage("system", skill.instructions))
 
 
 def apply_agent_to_session(session: ChatSession, agent: AgentProfile, prompts: list[PromptRecord]) -> None:

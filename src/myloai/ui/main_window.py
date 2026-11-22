@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import logging
 import sys
+from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 
@@ -33,18 +34,24 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from myloai import __version__
 from myloai.backends.manager import create_backend
 from myloai.backends.ollama import OllamaBackend
 from myloai.core.config import APP_SYSTEM_PROMPT, AppConfig
-from myloai.core.domain import ChatMessage, ChatSession, ModelInfo
+from myloai.core.domain import AgentProfile, ChatMessage, ChatSession, ModelInfo
 from myloai.core.managers import (
     AgentManager,
     PluginContext,
     PluginManager,
     PromptManager,
     SessionManager,
+    SkillManager,
     apply_agent_to_session,
+    apply_skill_to_session,
 )
+from myloai.core.mcp import McpManager
+from myloai.core.operations import OperationStreamParser, OperationUpdate
+from myloai.core.tools import ToolRegistry
 from myloai.ui.chat_view import (
     assistant_label,
     compute_scroll_restore_plan,
@@ -55,19 +62,21 @@ from myloai.ui.controllers import ChatController, ModelController, PluginControl
 from myloai.ui.diagnostics import (
     DiagnosticsSignals,
     LineBufferedStream,
-    OperationStreamParser,
-    OperationUpdate,
     QtLogHandler,
     append_output,
 )
 from myloai.ui.dialogs import (
     AgentBuilderDialog,
     EndpointDialog,
+    McpServersDialog,
     ModelfileEditor,
     ParameterDialog,
     PluginManagerDialog,
     PromptManagerDialog,
+    SkillBuilderDialog,
 )
+from myloai.ui.documents import bundled_document_path
+from myloai.ui.model_browser import ModelBrowserDialog
 from myloai.ui.theme import dark_qss
 from myloai.ui.workers import AsyncTask, StreamTask
 
@@ -198,6 +207,9 @@ class MainWindow(QMainWindow):
         self.sessions = SessionManager(config)
         self.prompts = PromptManager(config)
         self.agents = AgentManager(config)
+        self.skills = SkillManager(config)
+        self.mcp = McpManager(config)
+        self.tool_registry = ToolRegistry()
         self.plugin_context = PluginContext(self, config)
         self.plugins = PluginManager(config, self.plugin_context)
         self.models: list[ModelInfo] = []
@@ -217,8 +229,10 @@ class MainWindow(QMainWindow):
         self._build_menus()
         self._restore_state()
         self.plugins.load_enabled()
+        self._sync_plugin_tools()
         self.new_chat()
         self.refresh_backend()
+        self.start_mcp_servers()
 
     def _build_ui(self) -> None:
         self.tabs = QTabWidget()
@@ -272,6 +286,9 @@ class MainWindow(QMainWindow):
         self.prompt_list = QListWidget()
         self.prompt_list.itemDoubleClicked.connect(self.apply_prompt_item)
         self._dock("System Prompts", self.prompt_list, Qt.DockWidgetArea.RightDockWidgetArea)
+        self.skill_list = QListWidget()
+        self.skill_list.itemDoubleClicked.connect(self.apply_skill_item)
+        self._dock("Skills", self.skill_list, Qt.DockWidgetArea.RightDockWidgetArea)
         self.log_view = QPlainTextEdit()
         self.log_view.setReadOnly(True)
         self.log_view.setPlaceholderText("Structured Python logging records.")
@@ -332,6 +349,7 @@ class MainWindow(QMainWindow):
         self.token_view.setPlaceholderText("Current streamed response/tokens for active generation.")
         self.refresh_sessions()
         self.refresh_prompts()
+        self.refresh_skills()
 
     def _dock(self, title: str, widget: QWidget, area: Qt.DockWidgetArea) -> QDockWidget:
         dock = QDockWidget(title, self)
@@ -355,7 +373,9 @@ class MainWindow(QMainWindow):
         self._build_file_menu()
         self._build_models_menu()
         self._build_agents_menu()
+        self._build_skills_menu()
         self._build_plugins_menu()
+        self._build_mcp_menu()
         self._build_settings_menu()
         self._build_view_menu()
         self._build_developer_menu()
@@ -376,20 +396,31 @@ class MainWindow(QMainWindow):
 
     def _build_models_menu(self) -> None:
         models_menu = self.menuBar().addMenu("Models")
+        self._menu_action(models_menu, "Browse && Pull Models...", self.show_model_browser)
+        models_menu.addSeparator()
         self._menu_action(models_menu, "Pull", lambda: self.model_controller.pull_model(self))
         self._menu_action(models_menu, "Push", lambda: self.model_controller.push_model(self))
         self._menu_action(models_menu, "Clone", lambda: self.model_controller.clone_model(self))
         self._menu_action(models_menu, "Create", self.model_controller.create_model)
         self._menu_action(models_menu, "Delete", lambda: self.model_controller.delete_model(self))
+        models_menu.addSeparator()
         self._menu_action(models_menu, "Modelfiles", self.open_modelfile_editor)
         self._menu_action(models_menu, "Templates", self.open_template_viewer)
 
     def _build_agents_menu(self) -> None:
         agents_menu = self.menuBar().addMenu("Agents")
-        self._menu_action(agents_menu, "Create", self.open_agent_builder)
-        self._menu_action(agents_menu, "Manage", self.open_agent_builder)
-        self._menu_action(agents_menu, "Import", self.import_agent)
-        self._menu_action(agents_menu, "Export", self.export_agent)
+        self._menu_action(agents_menu, "Agent Builder...", self.open_agent_builder)
+        agents_menu.addSeparator()
+        self._menu_action(agents_menu, "Import Agent...", self.import_agent)
+        self._menu_action(agents_menu, "Export Agent...", self.export_agent)
+
+    def _build_skills_menu(self) -> None:
+        skills_menu = self.menuBar().addMenu("Skills")
+        self._menu_action(skills_menu, "Skills Builder...", self.open_skill_builder)
+        self._menu_action(skills_menu, "Apply Skill to Chat...", self.apply_skill_dialog)
+        skills_menu.addSeparator()
+        self._menu_action(skills_menu, "Import Skill...", self.import_skill)
+        self._menu_action(skills_menu, "Export Skill...", self.export_skill)
 
     def _build_plugins_menu(self) -> None:
         plugins_menu = self.menuBar().addMenu("Plugins")
@@ -398,42 +429,72 @@ class MainWindow(QMainWindow):
             plugins_menu, "Install", lambda: self.plugin_controller.install_plugin(self)
         )
         self._menu_action(plugins_menu, "Reload", self.plugin_controller.reload_plugins)
-        self._menu_action(plugins_menu, "Developer Mode", self.open_plugin_docs)
+        plugins_menu.addSeparator()
+        self._menu_action(
+            plugins_menu,
+            "Plugin SDK Documentation",
+            lambda: self.open_bundled_document("Plugin SDK", "PLUGIN_SDK.md"),
+        )
+
+    def _build_mcp_menu(self) -> None:
+        mcp_menu = self.menuBar().addMenu("MCP")
+        self._menu_action(mcp_menu, "MCP Servers...", self.open_mcp_servers)
+        self._menu_action(mcp_menu, "Reconnect MCP Servers", self.start_mcp_servers)
+        self._menu_action(mcp_menu, "List MCP Tools", self.list_mcp_tools)
 
     def _build_settings_menu(self) -> None:
         settings_menu = self.menuBar().addMenu("Settings")
-        self._menu_action(settings_menu, "API Endpoints", self.open_endpoints)
-        self._menu_action(settings_menu, "Parameters", self.open_parameters)
-        self._menu_action(settings_menu, "Prompt Manager", self.open_prompt_manager)
-        self._menu_action(settings_menu, "Themes", self.toggle_theme)
+        self._menu_action(settings_menu, "API Endpoints...", self.open_endpoints)
+        self._menu_action(settings_menu, "AI Model Settings...", self.open_parameters)
+        self._menu_action(settings_menu, "Prompt Manager...", self.open_prompt_manager)
+        settings_menu.addSeparator()
+        self._menu_action(settings_menu, "Theme...", self.choose_theme)
         self._menu_action(settings_menu, "Keyboard Shortcuts", self.show_shortcuts)
-        self._menu_action(settings_menu, "Default System Prompt", self.edit_default_system_prompt)
+        self._menu_action(settings_menu, "Default System Prompt...", self.edit_default_system_prompt)
+        settings_menu.addSeparator()
         self._menu_action(settings_menu, "Increase Font Size", lambda: self.adjust_font_size(1), "Ctrl++")
         self._menu_action(settings_menu, "Decrease Font Size", lambda: self.adjust_font_size(-1), "Ctrl+-")
         self._menu_action(settings_menu, "Reset Font Size", lambda: self.adjust_font_size(0), "Ctrl+0")
-        self._menu_action(settings_menu, "Model Settings", self.refresh_backend)
 
     def _build_view_menu(self) -> None:
         view_menu = self.menuBar().addMenu("View")
         self._menu_action(view_menu, "Toggle Panels", self.toggle_all_docks)
-        self._menu_action(view_menu, "Layout Presets", self.reset_layout)
-        self._menu_action(view_menu, "Diagnostics", self.show_diagnostics_dock)
+        self._menu_action(view_menu, "Reset Layout", self.reset_layout)
+        view_menu.addSeparator()
+        for label, slot in [
+            ("Models Panel", lambda: self._show_dock(self.find_dock("Models"), "Models")),
+            ("Chat Sessions Panel", lambda: self._show_dock(self.find_dock("Chat Sessions"), "Chat Sessions")),
+            ("System Prompts Panel", lambda: self._show_dock(self.find_dock("System Prompts"), "System Prompts")),
+            ("Skills Panel", lambda: self._show_dock(self.find_dock("Skills"), "Skills")),
+            ("Diagnostics Panel", self.show_diagnostics_dock),
+            ("Request Viewer", self.show_request_dock),
+            ("Token Viewer", self.show_token_dock),
+        ]:
+            self._menu_action(view_menu, label, slot)
 
     def _build_developer_menu(self) -> None:
         developer_menu = self.menuBar().addMenu("Developer")
-        self._menu_action(developer_menu, "Logs", self.show_logs_dock)
-        self._menu_action(developer_menu, "Console", self.show_console_dock)
-        self._menu_action(developer_menu, "Operations", self.show_operations_dock)
-        self._menu_action(developer_menu, "Request Viewer", self.show_request_dock)
-        self._menu_action(developer_menu, "Token Viewer", self.show_token_dock)
         self._menu_action(developer_menu, "Request Inspector", self.inspect_api)
-        self._menu_action(developer_menu, "Diagnostics", self.show_diagnostics_dock)
+        diagnostics_menu = developer_menu.addMenu("Diagnostics")
+        self._menu_action(diagnostics_menu, "Logs", self.show_logs_dock)
+        self._menu_action(diagnostics_menu, "Console", self.show_console_dock)
+        self._menu_action(diagnostics_menu, "Operations", self.show_operations_dock)
+        self._menu_action(diagnostics_menu, "Request Viewer", self.show_request_dock)
+        self._menu_action(diagnostics_menu, "Token Viewer", self.show_token_dock)
 
     def _build_help_menu(self) -> None:
         help_menu = self.menuBar().addMenu("Help")
-        self._menu_action(help_menu, "Documentation", self.open_docs)
+        self._menu_action(
+            help_menu,
+            "What is all this? (Learning Guide)",
+            lambda: self.open_bundled_document("Learning Guide", "LEARNING_GUIDE.md"),
+        )
+        self._menu_action(
+            help_menu,
+            "Documentation",
+            lambda: self.open_bundled_document("Documentation", "USER_MANUAL.md"),
+        )
         self._menu_action(help_menu, "About", self.about)
-        self._menu_action(help_menu, "Diagnostics", self.diagnostics)
 
     def current_tab(self) -> ChatTab | None:
         w = self.tabs.currentWidget()
@@ -514,6 +575,9 @@ class MainWindow(QMainWindow):
             messages = interceptor(messages)
         options = self.config.parameters.to_backend_options()
         options.update(tab.session.parameters or {})
+        tools = self._available_tools(agent)
+        if tools:
+            options["tools"] = tools
         request_preview = {
             "provider": profile.name,
             "url": profile.base_url,
@@ -526,12 +590,15 @@ class MainWindow(QMainWindow):
             request_preview.update({"provider": profile.name, "url": profile.base_url})
             request_preview["messages"] = redacted_request_messages(messages)
         self.request_view.setPlainText(json.dumps(request_preview, indent=2, default=str))
-        self.status.showMessage("generating" if not tab.streaming.isChecked() else "streaming")
         tab.set_generating(True)
         self.token_view.clear()
         assistant = ChatMessage("assistant", "")
         tab.session.messages.append(assistant)
         tab.render(model)
+        if tools:
+            self._generate_with_tools(tab, backend, model, messages, options)
+            return
+        self.status.showMessage("generating" if not tab.streaming.isChecked() else "streaming")
         task = StreamTask(
             lambda: backend.chat(
                 model,
@@ -962,9 +1029,18 @@ class MainWindow(QMainWindow):
 
     def open_plugins(self) -> None:
         PluginManagerDialog(self.plugins, self).exec()
+        self._sync_plugin_tools()
 
-    def open_plugin_docs(self) -> None:
-        self._open_document("Plugin SDK", Path.cwd() / "docs" / "PLUGIN_SDK.md")
+    def _sync_plugin_tools(self) -> None:
+        self.tool_registry.unregister_source("plugin")
+        for name, handler in self.plugin_context.tools.items():
+            self.tool_registry.register(
+                name,
+                f"Plugin tool '{name}'",
+                {"type": "object", "properties": {"text": {"type": "string"}}},
+                handler,
+                source="plugin",
+            )
 
     def open_agent_builder(self) -> None:
         AgentBuilderDialog(
@@ -977,13 +1053,55 @@ class MainWindow(QMainWindow):
         self.refresh_agents()
 
     def import_agent(self) -> None:
-        self.open_agent_builder()
+        path = self.ask_open_file("Import Agent", "JSON (*.json)")
+        if not path:
+            return
+        try:
+            agent = AgentProfile(**json.loads(Path(path).read_text(encoding="utf-8")))
+            self.agents.upsert(agent)
+            self.refresh_agents()
+            QMessageBox.information(self, "Import Agent", f"Imported agent: {agent.name}")
+        except (OSError, ValueError, TypeError, KeyError) as error:
+            self.show_error("Import Agent", str(error))
 
     def export_agent(self) -> None:
-        self.open_agent_builder()
+        agents = self.agents.list()
+        if not agents:
+            QMessageBox.information(self, "Export Agent", "There are no saved agents to export.")
+            return
+        name, ok = QInputDialog.getItem(
+            self, "Export Agent", "Agent:", [a.name for a in agents], 0, False
+        )
+        if not ok:
+            return
+        agent = next(a for a in agents if a.name == name)
+        path = self.ask_save_file("Export Agent", f"{agent.name}.json", "JSON (*.json)")
+        if not path:
+            return
+        try:
+            Path(path).write_text(json.dumps(asdict(agent), indent=2), encoding="utf-8")
+            QMessageBox.information(self, "Export Agent", f"Exported agent: {agent.name}")
+        except OSError as error:
+            self.show_error("Export Agent", str(error))
 
-    def toggle_theme(self) -> None:
-        self.setStyleSheet("" if self.styleSheet() else dark_qss(self.config.ui.font_size))
+    def choose_theme(self) -> None:
+        choice, ok = QInputDialog.getItem(
+            self,
+            "Theme",
+            "Select application theme:",
+            ["MyLoAI Dark", "System"],
+            0 if self.config.ui.theme == "dark" else 1,
+            False,
+        )
+        if not ok:
+            return
+        if choice == "MyLoAI Dark":
+            self.config.ui.theme = "dark"
+            self.setStyleSheet(dark_qss(self.config.ui.font_size))
+        else:
+            self.config.ui.theme = "system"
+            self.setStyleSheet("")
+        self.config.save()
 
     def show_shortcuts(self) -> None:
         self._show_text_dialog(
@@ -1028,16 +1146,23 @@ class MainWindow(QMainWindow):
             LOG.error("%s: %s", title, message)
             QMessageBox.warning(self, title, message)
             return
-        self._show_text_dialog(title, content[:12000])
+        self._show_text_dialog(title, content[:20000])
 
-    def open_docs(self) -> None:
-        self._open_document("Documentation", Path.cwd() / "README.md")
+    def open_bundled_document(self, title: str, name: str) -> None:
+        self._open_document(title, bundled_document_path(name))
+
+    def find_dock(self, title: str) -> QDockWidget | None:
+        for dock in self.findChildren(QDockWidget):
+            if dock.objectName() == title:
+                return dock
+        return None
 
     def about(self) -> None:
         QMessageBox.about(
             self,
-            "About",
-            "MyLoAI Control Center\nA PySide6 IDE-grade desktop application for local and remote LLMs.",
+            "About MyLoAI",
+            "MyLoAI Control Center\n\nA desktop control center for local and remote LLM services.\n\n"
+            f"Version {__version__}",
         )
 
     def diagnostics(self) -> None:
@@ -1056,9 +1181,232 @@ class MainWindow(QMainWindow):
         if self.config.ui.state_hex:
             self.restoreState(QByteArray.fromHex(self.config.ui.state_hex.encode()))
 
+    def _available_tools(self, agent) -> list[dict[str, Any]]:
+        if agent is not None and agent.execution_policy == "no_tools":
+            return []
+        return self.tool_registry.specs()
+
+    def _generate_with_tools(self, tab: ChatTab, backend, model: str, messages: list[ChatMessage], options: dict[str, Any]) -> None:
+        """Non-streaming tool-use loop: the model may request tool calls, which are executed via the registry."""
+        self.status.showMessage("generating (tool use enabled)")
+        assistant = tab.session.messages[-1]
+
+        async def work() -> str:
+            conversation = list(messages)
+            for _ in range(5):
+                result = await backend.chat_collect(model, conversation, options)
+                tool_calls = result.get("tool_calls") or []
+                content = result.get("content", "")
+                if not tool_calls:
+                    return content
+                conversation.append(
+                    ChatMessage("assistant", content, metadata={"tool_calls": tool_calls})
+                )
+                for call in tool_calls:
+                    try:
+                        output = await self.tool_registry.call(call["name"], call.get("arguments") or {})
+                    except Exception as exc:  # noqa: BLE001 - tool failures go back to the model
+                        output = f"error: {exc}"
+                    conversation.append(
+                        ChatMessage(
+                            "tool",
+                            output,
+                            name=call["name"],
+                            metadata={"tool_call_id": call["id"]},
+                        )
+                    )
+                self.status.showMessage(f"tool call: {', '.join(c['name'] for c in tool_calls)}")
+            final = await backend.chat_collect(model, conversation, options)
+            return final.get("content", "")
+
+        task = AsyncTask(work)
+        self._stream_owner_seq += 1
+        owner = self._stream_owner_seq
+        self.worker_refs.append(task)
+        task.result.connect(lambda text, owner_id=owner: self._tool_result(tab, assistant, text, owner_id))
+        task.error.connect(lambda error, owner_id=owner: self._stream_error(error, owner_id))
+        task.start()
+
+    def _tool_result(self, tab: ChatTab, msg: ChatMessage, text: str, owner_id: int) -> None:
+        if self._active_stream_owner not in (None, owner_id):
+            return
+        self._active_stream_owner = None
+        msg.content = text
+        self.token_view.setPlainText(text)
+        self.status.showMessage("idle")
+        tab.set_generating(False)
+        self.sessions.save(tab.session)
+        self.refresh_sessions()
+        tab.render(self.model_combo.currentText() or tab.session.model)
+
+    def start_mcp_servers(self) -> None:
+        async def work():
+            return await self.mcp.start_enabled()
+
+        task = AsyncTask(work)
+        self.worker_refs.append(task)
+        task.result.connect(self._mcp_started)
+        task.error.connect(lambda e: self.log(f"MCP startup error: {e}"))
+        task.start()
+
+    def _mcp_started(self, results: dict) -> None:
+        for name, value in results.items():
+            if isinstance(value, str):
+                self.log(f"MCP server '{name}' failed to start: {value}")
+            else:
+                self.log(f"MCP server '{name}' connected with {len(value)} tools")
+        self._register_mcp_tools(results)
+
+    def _register_mcp_tools(self, results: dict) -> None:
+        self.tool_registry.unregister_source("mcp")
+        for name, tools in results.items():
+            if isinstance(tools, str):
+                continue
+            for tool in tools:
+                tool_name = f"{name}__{tool.name}"
+                self.tool_registry.register(
+                    tool_name,
+                    tool.description or f"MCP tool {tool.name} from server '{name}'",
+                    tool.input_schema,
+                    lambda _n=tool_name, _s=name: self._mcp_call(_s, _n),
+                    source="mcp",
+                )
+
+    async def _mcp_call(self, server_name: str, tool_name: str, **arguments) -> str:
+        return await self.mcp.call_tool(server_name, tool_name.split("__", 1)[1], arguments)
+
+    def open_mcp_servers(self) -> None:
+        if McpServersDialog(self.config, self.mcp, self).exec():
+            self.start_mcp_servers()
+
+    def list_mcp_tools(self) -> None:
+        tools = self.tool_registry.specs()
+        mcp_tools = [t for t in tools if t["function"]["name"].count("__")]
+        self._show_text_dialog(
+            "MCP Tools",
+            json.dumps(mcp_tools, indent=2) if mcp_tools else "No MCP tools connected. Configure servers under MCP > MCP Servers...",
+        )
+
+    def show_model_browser(self) -> None:
+        import psutil
+
+        ram = psutil.virtual_memory().total / 1024**3
+        recommended = (
+            "gemma3:1b"
+            if ram < 6
+            else "qwen3.5:4b"
+            if ram < 12
+            else "mistral:7b"
+            if ram < 24
+            else "deepseek-r1:7b"
+        )
+        ModelBrowserDialog(self, recommended).exec()
+
+    def refresh_skills(self) -> None:
+        self.skill_list.clear()
+        for skill in self.skills.list():
+            self.skill_list.addItem(f"{skill.name} (v{skill.version})")
+            self.skill_list.item(self.skill_list.count() - 1).setData(Qt.ItemDataRole.UserRole, skill.id)
+
+    def apply_skill_item(self, item) -> None:
+        tab = self.current_tab()
+        skill = self.skills.get(item.data(Qt.ItemDataRole.UserRole))
+        if tab and skill:
+            apply_skill_to_session(tab.session, skill)
+            self.render_tab(tab)
+            self.sessions.save(tab.session)
+            self.refresh_sessions()
+            self.status.showMessage(f"Applied skill: {skill.name}")
+
+    def apply_skill_dialog(self) -> None:
+        skills = self.skills.list()
+        if not skills:
+            QMessageBox.information(self, "Apply Skill", "No skills yet. Create one in Skills > Skills Builder...")
+            return
+        name, ok = QInputDialog.getItem(
+            self, "Apply Skill", "Skill:", [s.name for s in skills], 0, False
+        )
+        if ok:
+            skill = next(s for s in skills if s.name == name)
+            tab = self.current_tab()
+            if tab:
+                apply_skill_to_session(tab.session, skill)
+                self.render_tab(tab)
+                self.sessions.save(tab.session)
+                self.refresh_sessions()
+
+    def open_skill_builder(self) -> None:
+        SkillBuilderDialog(self.skills, self).exec()
+        self.refresh_skills()
+
+    def import_skill(self) -> None:
+        path = self.ask_open_file("Import Skill", "Markdown (*.md)")
+        if path:
+            skill = self.skills.import_file(Path(path))
+            self.refresh_skills()
+            QMessageBox.information(self, "Import Skill", f"Imported skill: {skill.name}")
+
+    def export_skill(self) -> None:
+        skills = self.skills.list()
+        if not skills:
+            QMessageBox.information(self, "Export Skill", "There are no saved skills to export.")
+            return
+        name, ok = QInputDialog.getItem(self, "Export Skill", "Skill:", [s.name for s in skills], 0, False)
+        if not ok:
+            return
+        skill = next(s for s in skills if s.name == name)
+        path = self.ask_save_file("Export Skill", f"{skill.name}.md", "Markdown (*.md)")
+        if path:
+            self.skills.export(skill, Path(path))
+            QMessageBox.information(self, "Export Skill", f"Exported skill: {skill.name}")
+
+    def ask_open_file(self, title: str, name_filter: str) -> str:
+        path, _ = QFileDialog.getOpenFileName(self, title, filter=name_filter)
+        return path
+
+    def ask_save_file(self, title: str, default_name: str, name_filter: str) -> str:
+        path, _ = QFileDialog.getSaveFileName(self, title, default_name, name_filter)
+        return path
+
+    def show_error(self, title: str, text: str) -> None:
+        QMessageBox.critical(self, title, text)
+
+    def show_info(self, title: str, text: str) -> None:
+        QMessageBox.information(self, title, text)
+
+    def ask_int(self, title: str, label: str, value: int, minimum: int, maximum: int) -> tuple[int, bool]:
+        return QInputDialog.getInt(self, title, label, value, minimum, maximum)
+
+    def ask_text(self, title: str, label: str, text: str = "") -> tuple[str, bool]:
+        return QInputDialog.getText(self, title, label, text=text)
+
+    def ask_multiline_text(self, title: str, label: str, text: str) -> tuple[str, bool]:
+        return QInputDialog.getMultiLineText(self, title, label, text)
+
+    def ask_confirm(self, title: str, text: str) -> bool:
+        answer = QMessageBox.question(self, title, text)
+        return answer == QMessageBox.StandardButton.Yes
+
+    def clipboard_set(self, text: str) -> None:
+        QApplication.clipboard().setText(text)
+
+    def run_stream(self, iterator_factory, on_token, on_done, on_error) -> None:
+        task = StreamTask(iterator_factory)
+        self.worker_refs.append(task)
+        task.token.connect(on_token)
+        task.completed.connect(on_done)
+        task.error.connect(on_error)
+        task.start()
+
     def closeEvent(self, event) -> None:
         sys.stdout = self._original_stdout
         sys.stderr = self._original_stderr
+        try:
+            import asyncio
+
+            asyncio.new_event_loop().run_until_complete(self.mcp.stop_all())
+        except Exception:
+            LOG.exception("MCP shutdown failed")
         if self._diagnostics_log_handler is not None:
             logging.getLogger().removeHandler(self._diagnostics_log_handler)
         if self.current_stream and self.current_stream.isRunning():

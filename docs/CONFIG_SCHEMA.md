@@ -1,7 +1,7 @@
 # Configuration Schema
 
 Date: 2026-08-17
-Current schema version: `2`
+Current schema version: `3`
 
 ## Purpose
 
@@ -13,7 +13,8 @@ The configuration schema version is independent from the application/package ver
 
 ```json
 {
-  "schema_version": 2,
+  "schema_version": 3,
+  "mcp_servers": [],
   "provider_profiles": [
     {
       "name": "Local Ollama",
@@ -89,3 +90,7 @@ Configuration changes require tests for:
 - future-schema rejection;
 - secret exclusion from serialized JSON;
 - runtime access to credentials through the credential store.
+
+## Schema version 3
+
+Added `mcp_servers`: a list of MCP server definitions, each with `name`, `command`, `args`, `env`, `transport` (currently `stdio`), and `enabled`. Configs written with schema version 2 are migrated automatically by adding an empty `mcp_servers` list.

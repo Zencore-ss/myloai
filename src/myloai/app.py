@@ -8,13 +8,13 @@ if __package__ in {None, ""}:
     sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 from platformdirs import user_config_dir
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import QApplication
 
 from myloai.core.config import APP_NAME, AppConfig
 from myloai.core.logging import configure_logging
 from myloai.ui.main_window import MainWindow
-from myloai.ui.production_fixes import apply_production_fixes
+from myloai.ui.setup_wizard import FirstRunWizard
 
 
 def main() -> int:
@@ -37,7 +37,8 @@ def main() -> int:
     finally:
         MainWindow.refresh_backend = original_refresh_backend
 
-    apply_production_fixes(win, first_run=first_run)
+    if first_run:
+        QTimer.singleShot(250, lambda: FirstRunWizard(config, win).exec())
     win.show()
     return app.exec()
 

@@ -15,6 +15,12 @@ class ChatWindowPort(Protocol):
     def refresh_sessions(self) -> None: ...
     def log(self, text: str) -> None: ...
     def open_session(self, session_id: str) -> None: ...
+    def ask_open_file(self, title: str, name_filter: str) -> str: ...
+    def show_error(self, title: str, text: str) -> None: ...
+    def show_info(self, title: str, text: str) -> None: ...
+    def ask_int(self, title: str, label: str, value: int, minimum: int, maximum: int) -> tuple[int, bool]: ...
+    def ask_multiline_text(self, title: str, label: str, text: str) -> tuple[str, bool]: ...
+    def clipboard_set(self, text: str) -> None: ...
 
 
 class ChatController:
@@ -31,7 +37,7 @@ class ChatController:
             self.window.log("Saved chat session")
 
     def open_chat_file(self, parent) -> None:
-        path, _ = __import__("PySide6.QtWidgets", fromlist=["QFileDialog"]).QFileDialog.getOpenFileName(parent, "Open Chat", filter="JSON (*.json)")
+        path = self.window.ask_open_file("Open Chat", "JSON (*.json)")
         if path:
             session = ChatSession.from_file(Path(path))
             session.save(self.config.paths.sessions_dir)
@@ -64,7 +70,7 @@ class ChatController:
     def copy_last_message(self) -> None:
         tab = self.window.current_tab()
         if tab and tab.session.messages:
-            __import__("PySide6.QtWidgets", fromlist=["QApplication"]).QApplication.clipboard().setText(tab.session.messages[-1].content)
+            self.window.clipboard_set(tab.session.messages[-1].content)
             self.window.log("Copied last message to clipboard")
 
     def edit_message(self, parent) -> None:
@@ -74,11 +80,11 @@ class ChatController:
         visible = [msg for msg in tab.session.messages if not message_is_internal_system(msg)]
         if not visible:
             return
-        number, ok = __import__("PySide6.QtWidgets", fromlist=["QInputDialog"]).QInputDialog.getInt(parent, "Edit Message", "Message number:", len(visible), 1, len(visible))
+        number, ok = self.window.ask_int("Edit Message", "Message number:", len(visible), 1, len(visible))
         if not ok:
             return
         msg = visible[number - 1]
-        text, ok = __import__("PySide6.QtWidgets", fromlist=["QInputDialog"]).QInputDialog.getMultiLineText(parent, "Edit Message", f"{msg.role} content:", msg.content)
+        text, ok = self.window.ask_multiline_text("Edit Message", f"{msg.role} content:", msg.content)
         if ok:
             msg.content = text
             self.window.render_tab(tab)
@@ -91,7 +97,7 @@ class ChatController:
         visible = [msg for msg in tab.session.messages if not message_is_internal_system(msg)]
         if not visible:
             return
-        number, ok = __import__("PySide6.QtWidgets", fromlist=["QInputDialog"]).QInputDialog.getInt(parent, "Delete Message", "Message number:", len(visible), 1, len(visible))
+        number, ok = self.window.ask_int("Delete Message", "Message number:", len(visible), 1, len(visible))
         if ok:
             message = visible[number - 1]
             tab.session.messages.remove(message)

@@ -43,3 +43,15 @@ Use the operating system's normal application removal mechanism. Uninstalling th
 ## Support information
 
 When reporting a problem, include the MyLoAI version, operating system, provider type, and a concise description of the failing operation. Do not include passwords, API keys, tokens, or other private credentials.
+
+## MCP servers
+
+Open **MCP > MCP Servers...** to add an MCP server by command and arguments (for example `npx -y <server-package>`), enable it, and test the connection. Enabled servers start automatically with the app; their tools appear under **MCP > List MCP Tools** and are offered to the model during chat when tools are available.
+
+## Skills
+
+**Skills > Skills Builder...** manages skills — reusable instruction bundles stored as `SKILL.md`. **Skills > Apply Skill to Chat...** (or double-click in the Skills panel) applies a skill's instructions as the chat's system prompt.
+
+## Learning guide
+
+**Help > What is all this? (Learning Guide)** explains every part of the application in plain language.

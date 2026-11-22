@@ -171,6 +171,32 @@ Backend availability, authentication, model availability, desktop environment, a
 | Desktop | Source-tree launcher | implemented | Development launcher delegates to the Python application entry point and is not used by native production packages. | `python -m myloai` |
 | Desktop | Source-tree launcher installation | implemented | Development-only helpers install the repository launcher/desktop entry into the user environment. | `scripts/install-launcher`, `scripts/install-desktop-entry` |
 
+
+## 14a. MCP (Model Context Protocol)
+
+| Area | Action | Status | Contract / current behavior | Primary implementation |
+|---|---|---|---|---|
+| MCP | Server management | implemented | MCP Servers dialog adds/removes/enables stdio MCP servers; config persists them (schema v3 `mcp_servers`). | `core/config.py`, `ui/dialogs.py` (`McpServersDialog`) |
+| MCP | Connect/discover | implemented | Enabled servers start as subprocesses; initialize handshake + `tools/list`; per-server failure isolation. | `core/mcp.py` (`McpManager`, `McpClient`) |
+| MCP | Tool registry | implemented | MCP tools registered as `server__tool`; plugin tools registered by name; OpenAI-style schemas sent in chat payloads when tools are available. | `core/tools.py`, `backends/ollama.py`, `backends/openai.py` |
+| MCP | Tool execution loop | implemented | Non-streaming chat collects tool_calls, executes via registry (MCP or plugin), appends tool results, and re-requests (max 5 rounds). | `ui/main_window.py` (`_generate_with_tools`) |
+
+## 14b. Skills
+
+| Area | Action | Status | Contract / current behavior | Primary implementation |
+|---|---|---|---|---|
+| Skills | Builder | implemented | Skills Builder creates/edits/deletes skills stored as `<skills_dir>/<id>/SKILL.md` with frontmatter. | `core/managers.py` (`SkillManager`), `ui/dialogs.py` (`SkillBuilderDialog`) |
+| Skills | Apply | implemented | Skills menu / Skills dock apply a skill's instructions as the chat system prompt. | `core/managers.py` (`apply_skill_to_session`), `ui/main_window.py` |
+| Skills | Import/Export | implemented | SKILL.md import/export. | `SkillManager` |
+
+## 14c. Menus and UI structure
+
+| Area | Action | Status | Contract / current behavior | Primary implementation |
+|---|---|---|---|---|
+| Menus | Single-source construction | implemented | All menus are built once in `MainWindow._build_menus()`; the runtime patch layer (`ui/production_fixes.py`) was removed. Per-item contract in `docs/MENU_MAP.md`. | `ui/main_window.py` |
+| UI | Framework boundary | implemented | `core/`, `backends/`, and `ui/controllers/` import no GUI framework (enforced by `tests/test_architecture.py`); PySide6 lives only in the `ui/` adapter. | `docs/ARCHITECTURE.md` |
+| Help | Learning guide | implemented | Help > What is all this? opens the bundled plain-language `docs/LEARNING_GUIDE.md`. | `ui/main_window.py`, `docs/LEARNING_GUIDE.md` |
+
 ## 14. Contract rules
 
 1. Rows marked **implemented** must remain represented by active production code under `src/myloai/`.

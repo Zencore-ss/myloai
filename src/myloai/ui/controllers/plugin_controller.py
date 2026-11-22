@@ -3,11 +3,11 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Protocol
 
-from PySide6.QtWidgets import QFileDialog, QMessageBox
-
 
 class PluginWindowPort(Protocol):
     def log(self, text: str) -> None: ...
+    def ask_open_file(self, title: str, name_filter: str) -> str: ...
+    def show_error(self, title: str, text: str) -> None: ...
 
 
 class PluginController:
@@ -21,13 +21,13 @@ class PluginController:
         self.window.log("Plugins reloaded")
 
     def install_plugin(self, parent) -> None:
-        path, _ = QFileDialog.getOpenFileName(parent, "Install Plugin", filter="Python (*.py)")
+        path = self.window.ask_open_file("Install Plugin", "Python (*.py)")
         if not path:
             return
         try:
             dest = self.plugins.install(Path(path))
         except (OSError, ValueError) as error:
             self.window.log(f"Plugin install rejected: {error}")
-            QMessageBox.critical(parent, "Install Plugin", f"Plugin was not installed:\n{error}")
+            self.window.show_error("Install Plugin", f"Plugin was not installed:\n{error}")
             return
         self.window.log(f"Installed plugin {dest}")
