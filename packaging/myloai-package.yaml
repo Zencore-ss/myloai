@@ -3,7 +3,7 @@
 # Native Linux .deb/AppImage creation remains packaging/build-linux.sh.
 control:
   Package: myloai-linux-packaging
-  Version: 2.2.0
+  Version: 2.0.0
   Architecture: all
   Maintainer: Zencore-ss
   Homepage: https://github.com/Zencore-ss/myloai

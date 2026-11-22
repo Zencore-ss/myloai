@@ -30,17 +30,23 @@ Do not do that.
 
 ## 2. Project Identity
 
-This repository is for a production-grade desktop frontend for Ollama built with Python and PySide6.
+This repository is for **MyLoAI Control Center**, a production-grade desktop control center for local and remote LLMs built with Python and PySide6.
 
-The application should behave like a serious local LLM control center, not a disposable demo wrapper.
+Supported provider types are Ollama, OpenAI-compatible, and llama.cpp server profiles, plus MCP (Model Context Protocol) tool servers, plugins, agents, and skills.
+
+The application should behave like a serious LLM control center, not a disposable demo wrapper.
 
 Core goals:
 
-- Provide a polished graphical frontend for Ollama.
+- Provide a polished graphical control center for local and remote LLM providers.
 - Preserve and improve existing working functionality.
 - Keep the app stable, responsive, and maintainable.
 - Prefer practical production quality over theoretical architectural purity.
 - Treat existing user work as valuable unless clearly proven obsolete or broken.
+
+### GUI framework boundary
+
+The app is not hardwired to PySide6. `src/myloai/core/`, `src/myloai/backends/`, and `src/myloai/ui/controllers/` must not import any GUI framework (enforced by `tests/test_architecture.py`). Controllers talk to the window through `Protocol` ports. `src/myloai/ui/` is the PySide6 adapter; another framework can be added later by implementing the same ports. See `docs/ARCHITECTURE.md`.
 
 ---
 
@@ -137,59 +143,34 @@ Archived code under `archive/**` is historical storage, not active runtime.
 
 ---
 
-## 6. Versioning Is Mandatory
+## 6. Versioning Is Maintainer-Managed via SemVer Forge — Agents Must Not Touch Version Numbers
 
-Every meaningful change must bump the version.
+**Agents and automation must never edit version numbers or versioned changelog headings.** The maintainer runs SemVer Forge after pulling and inspecting work; the tool computes and writes the version.
 
-No completed task is valid unless the version has been inspected and updated correctly.
+Absolute rules for agents:
 
-### Before changing the version
+- Do not edit `VERSION`, `pyproject.toml` (`project.version`), `src/myloai/__init__.py` (`__version__`), or any packaging version field (`packaging/myloai-package.yaml` `control.Version`, `packaging/linux/PKGBUILD` `pkgver`, man page, installer define).
+- Do not add versioned headings (`## [x.y.z] - date`) to `CHANGELOG.md`. Add entries under the existing `## [Unreleased]` section only.
+- Do not run any SemVer Forge / SVF commands. Version computation, tagging, and syncing are the maintainer's job.
 
-Inspect the repository for the existing version source:
+### SemVer Forge contract (`.semver-forge.toml`)
 
-- `VERSION`
-- `pyproject.toml`
-- `setup.py`
-- `setup.cfg`
-- package `__init__.py`
-- app metadata/constants
-- About dialog
-- README references
-- docs references
+The authoritative machine-readable spec is `.semver-forge.toml`:
 
-Update all version locations that are meant to stay in sync.
-
-### Versioning scheme
-
-Use semantic versioning:
-
-```text
-MAJOR.MINOR.PATCH
-```
-
-Guidelines:
-
-- PATCH: bug fixes, lint fixes, small UI fixes, documentation corrections.
-- MINOR: new features, meaningful UX improvements, new panels, new workflows.
-- MAJOR: breaking changes, major architecture migrations, incompatible config changes.
-
-When unsure, use PATCH for fixes and MINOR for user-visible features.
+- Version source of truth: `pyproject.toml` `project.version`; tags use the `v` prefix; the tree must be clean (`require_clean = true`); baseline commit and `initial` are recorded there.
+- Commit types: `feat` -> MINOR, `fix`/`perf`/`revert` -> PATCH, a breaking change (`!` suffix or `BREAKING CHANGE:` footer) -> MAJOR.
+- Ignored commit types: `docs`, `style`, `refactor`, `test`, `build`, `ci`, `chore`. Unknown and merge commits are ignored. So agents should use `feat:`/`fix:` for version-relevant work and `docs:`/`chore:`/`ci:` for everything else.
+- Forge sync targets: `VERSION`, `packaging/myloai-package.yaml` (`control.Version`), `packaging/linux/PKGBUILD` (`pkgver`). `src/myloai/__init__.py`, the man page, and the Windows installer define are manual sync points (see `docs/VERSIONING.md`).
 
 ---
 
-## 7. Changelog Is Mandatory
+## 7. Changelog Entries Are Mandatory — Under `[Unreleased]` Only
 
-Every version bump must append an entry to:
-
-```text
-CHANGELOG.md
-```
+Every meaningful change must add an entry to `CHANGELOG.md` under the existing `## [Unreleased]` section at the top. Agents never create versioned headings; SemVer Forge stamps the version when the maintainer runs it.
 
 Use this format:
 
 ```markdown
-## [x.y.z] - YYYY-MM-DD
-
 ### Added
 - ...
 
@@ -209,7 +190,7 @@ Use this format:
 Only include sections that apply.
 
 Do not rewrite the whole changelog unless explicitly asked.
-Append the new entry at the top unless the repo uses a different clear convention.
+Append new entries within the top `## [Unreleased]` section.
 
 ---
 
@@ -233,7 +214,7 @@ Possible documentation files:
 | Change type | Required documentation |
 |---|---|
 | New user-facing feature | `README.md`, `CHANGELOG.md` |
-| Version bump | `CHANGELOG.md`, version source files |
+| Changelog-worthy change | `CHANGELOG.md` entry under `## [Unreleased]` only — agents never edit version source files (SemVer Forge owns versions, section 6) |
 | New setting/config option | `README.md` or config docs |
 | New dependency | `README.md`, package/dependency files |
 | New architecture/module layout | architecture/development docs |
@@ -258,6 +239,12 @@ This is a PySide6 GUI application. UI changes must be careful.
 - Preserve the existing visual identity unless the task asks for redesign.
 - Avoid cramped or unreadable UI.
 - Keep panels and controls understandable.
+
+### Menus and UI construction
+
+- Build menus, toolbars, and docks once, correctly, at construction time (single source of truth in `src/myloai/ui/main_window.py`). Runtime patch layers that rewrite menus after startup (the old `production_fixes.py` approach) are prohibited.
+- Every menu item must map to a real, working handler at build time. No fake items, no runtime rewiring.
+- The per-item menu contract lives in `docs/MENU_MAP.md`; keep it in sync in the same change set.
 
 ### For Ollama operations
 
@@ -293,8 +280,7 @@ When introducing a new user-triggered UI action, wire all required implementatio
 - Logging and status/progress updates where applicable.
 - Documentation updates for user/developer visibility.
 - Relevant tests or validation coverage updates where practical.
-- Required version bump updates.
-- Required `CHANGELOG.md` entry updates.
+- `CHANGELOG.md` entry under `## [Unreleased]` (agents never edit version numbers; see section 6).
 
 ### Scope guardrail
 
@@ -505,8 +491,7 @@ At the end of any task, provide a concise summary with:
 
 - What changed.
 - Files changed.
-- Version before and after.
-- Changelog entry added.
+- Changelog entry added under `## [Unreleased]` (and confirmation that no version numbers were touched).
 - Documentation updated.
 - Tests/checks run.
 - Whether checks passed.
@@ -529,10 +514,9 @@ For every task, follow this workflow:
 5. Implement the requested change.
 6. Update or add tests when practical.
 7. Update documentation.
-8. Bump version.
-9. Append `CHANGELOG.md`.
-10. Run checks.
-11. Report results honestly.
+8. Add a `CHANGELOG.md` entry under `## [Unreleased]` — do not bump or edit version numbers (SemVer Forge owns versions, section 6).
+9. Run checks.
+10. Report results honestly.
 
 ---
 
@@ -554,8 +538,7 @@ Expected:
 - Run creation in a worker.
 - Show success/failure.
 - Update docs.
-- Bump version.
-- Update changelog.
+- Add a `CHANGELOG.md` entry under `## [Unreleased]` (no version edits; SemVer Forge owns versions).
 
 Not expected:
 
@@ -564,7 +547,8 @@ Not expected:
 - Rename the app.
 - Redesign settings.
 - Move all services.
-- Rewrite the Ollama client from scratch unless it is broken.
+- Rewrite the backend client from scratch unless it is broken.
+- Edit any version number or versioned changelog heading.
 
 ### Request
 
@@ -575,8 +559,7 @@ Expected:
 - Fix the lint errors.
 - Preserve behavior.
 - Run Ruff.
-- Bump PATCH.
-- Update changelog.
+- Add a `CHANGELOG.md` entry under `## [Unreleased]` (no version edits; SemVer Forge owns versions).
 
 Not expected:
 
@@ -647,7 +630,7 @@ Establish the relevant:
 - existing implementation;
 - project instructions;
 - configuration;
-- version sources;
+- version sources (read-only for agents; SemVer Forge owns them);
 - tests and validation commands;
 - Git state when relevant;
 - dependencies and interfaces involved in the task.

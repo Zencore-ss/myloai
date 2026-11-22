@@ -1,10 +1,10 @@
-## [2.2.0] - 2026-11-22
+## [Unreleased]
 
 ### Added
 - **MCP (Model Context Protocol) support**: manage stdio MCP servers (MCP > MCP Servers...), auto-start enabled servers, discover their tools, and let chats use them — tools are sent in chat payloads and tool calls are executed through a tool registry in a bounded loop (`core/mcp.py`, `core/tools.py`).
 - **Skills**: skills are `SKILL.md` bundles managed in Skills > Skills Builder... and applied to a chat as its system prompt from the Skills menu or Skills dock (`SkillManager`).
 - **Learning guide**: Help > "What is all this? (Learning Guide)" opens a bundled plain-language explanation of providers, models, agents, skills, plugins, MCP, parameters, and diagnostics (`docs/LEARNING_GUIDE.md`, bundled in frozen builds).
-- New MCP and Skills menus; Skills dock panel; toolbar Agent dropdown (from 2.1.0 work).
+- New MCP and Skills menus; Skills dock panel; toolbar Agent dropdown.
 
 ### Changed
 - **Menus are now built correctly in one place**: `MainWindow._build_menus()` owns the full menu structure and `ui/production_fixes.py` (the runtime patch layer) is deleted. Fixed in the base build: Settings "Model Settings" miswiring (now "AI Model Settings..."), fake Agents Import/Export, Developer "Request Inspector" being dropped, "Layout Presets" renamed to "Reset Layout", persisted Theme chooser, versioned About, and bundled-document paths that work in source and frozen builds.
@@ -17,8 +17,6 @@
 
 ### Documentation
 - `docs/MENU_MAP.md` rewritten as a per-item intended-vs-current contract; `docs/ARCHITECTURE.md` documents the UI-adapter boundary; `docs/CONFIG_SCHEMA.md` documents schema v3; `docs/FEATURE_MATRIX.md` records MCP, Skills, menus, and the learning guide; `docs/LEARNING_GUIDE.md` added and bundled into PyInstaller/packaging payloads.
-
-## [2.1.0] - 2026-11-22
 
 ### Added
 - Agent picker in the main toolbar: selecting an agent applies its model, linked system prompt, and reasoning mode to the current chat; new chats inherit the selected agent, opened sessions restore their agent, and `ChatSession` persists `agent_id`.
@@ -35,7 +33,7 @@
 - Updated the Plugin SDK guide for memory providers, lifecycle cleanup, and install validation.
 - Feature matrix now records agent execution integration and plugin install as implemented.
 
-## [2.0.0] - 2026-11-08
+## [Unreleased]
 
 ### Changed
 - Broke the former `legacy_pkg` Python namespace and established the conventional `src/myloai/` source-package layout.
@@ -54,9 +52,6 @@
 - The previous `legacy-repo` repository and `legacy_pkg` namespace are historical only. The active repository is `Zencore-ss/myloai`.
 - No user-data compatibility migration is being maintained during this development reset. Existing local configuration/data paths are intentionally outside the current compatibility contract.
 
-### Documentation
-- Added project-specific standards for the MyLoAI desktop application, provider behavior, configuration, plugins, user documentation, and supported package formats.
-
 ## [1.2.12] - 2026-09-24
 
 ### Fixed
@@ -67,6 +62,11 @@
 
 ### Documentation
 - Kept Prompt Manager functionality aligned with the existing feature matrix and QA expectations.
+
+## [Unreleased]
+
+### Documentation
+- Added project-specific standards for the MyLoAI desktop application, provider behavior, configuration, plugins, user documentation, and supported package formats.
 
 ## [1.2.11] - 2026-09-24
 

@@ -3,16 +3,18 @@
 Date: 2026-09-24
 Scope: Current repository versioning policy and synchronization rules.
 
+> **Version bumps are maintainer-run via SemVer Forge** (`.semver-forge.toml`): `feat` -> MINOR, `fix`/`perf`/`revert` -> PATCH, breaking changes (`!` / `BREAKING CHANGE:`) -> MAJOR; `docs`/`style`/`refactor`/`test`/`build`/`ci`/`chore`, unknown, and merge commits are ignored; tags use the `v` prefix; the tree must be clean. The forge source of truth is `pyproject.toml` `project.version`, and its sync targets are `VERSION`, `packaging/myloai-package.yaml` (`control.Version`), and `packaging/linux/PKGBUILD` (`pkgver`). Agents and automation must never edit version numbers or add versioned `CHANGELOG.md` headings — changelog entries go under `## [Unreleased]`. See `AGENTS.md` section 6.
+
 ## Current State Snapshot
 
 ### CONFIRMED
-- `pyproject.toml` version: `2.2.0`
-- `src/myloai/__init__.py` version: `2.2.0`
-- `CHANGELOG.md` latest version heading: `2.2.0` (dated 2026-11-22)
-- Linux Arch package version: `2.2.0`
-- Linux man page version: `2.2.0`
-- Windows installer fallback version: `2.2.0`
-- Linux packaging bundle manifest version: `2.2.0`
+- `pyproject.toml` version: `1.2.12`
+- `src/myloai/__init__.py` version: `1.2.12`
+- `CHANGELOG.md` latest version heading: `1.2.12` (dated 2026-11-22)
+- Linux Arch package version: `1.2.12`
+- Linux man page version: `1.2.12`
+- Windows installer fallback version: `1.2.12`
+- Linux packaging bundle manifest version: `1.2.12`
 - persisted configuration schema: `2`
 
 ### Source of truth
