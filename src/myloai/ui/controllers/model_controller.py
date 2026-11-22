@@ -1,10 +1,10 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import Protocol
 
 from myloai.backends.manager import create_backend
-from myloai.ui.diagnostics import OperationStreamParser
-from myloai.ui.workers import StreamTask
+from myloai.core.operations import OperationStreamParser
 
 
 class ModelWindowPort(Protocol):
@@ -14,7 +14,6 @@ class ModelWindowPort(Protocol):
     def complete_operation(self, operation: str) -> None: ...
     def fail_operation(self, operation: str, error: str) -> None: ...
     def refresh_backend(self) -> None: ...
-    def add_worker(self, worker) -> None: ...
     def run_async(
         self,
         coro_factory,
@@ -24,6 +23,17 @@ class ModelWindowPort(Protocol):
         error_title: str,
         parent,
     ) -> None: ...
+    def run_stream(
+        self,
+        iterator_factory,
+        on_token: Callable[[str], None],
+        on_done: Callable[[str], None],
+        on_error: Callable[[str], None],
+    ) -> None: ...
+    def ask_text(self, title: str, label: str, text: str = "") -> tuple[str, bool]: ...
+    def ask_confirm(self, title: str, text: str) -> bool: ...
+    def show_info(self, title: str, text: str) -> None: ...
+    def show_error(self, title: str, text: str) -> None: ...
     def open_modelfile_editor(self) -> None: ...
 
 
@@ -42,30 +52,17 @@ class ModelController:
         self.window.open_modelfile_editor()
 
     def clone_model(self, parent) -> None:
-        widgets = __import__("PySide6.QtWidgets", fromlist=["QInputDialog", "QMessageBox"])
         source = self.window.model_name().strip()
         if not source:
-            widgets.QMessageBox.information(
-                parent,
-                "Clone Model",
-                "Select a model before attempting to clone it.",
-            )
+            self.window.show_info("Clone Model", "Select a model before attempting to clone it.")
             return
 
-        destination, ok = widgets.QInputDialog.getText(
-            parent,
-            "Clone Model",
-            "Destination model name:",
-        )
+        destination, ok = self.window.ask_text("Clone Model", "Destination model name:")
         if not ok:
             return
         destination = destination.strip()
         if not destination:
-            widgets.QMessageBox.information(
-                parent,
-                "Clone Model",
-                "Destination model name is required.",
-            )
+            self.window.show_info("Clone Model", "Destination model name is required.")
             return
 
         operation = f"Clone model {source} -> {destination}"
@@ -80,25 +77,14 @@ class ModelController:
         )
 
     def delete_model(self, parent) -> None:
-        widgets = __import__("PySide6.QtWidgets", fromlist=["QMessageBox"])
         name = self.window.model_name().strip()
         if not name:
-            widgets.QMessageBox.information(
-                parent,
-                "Delete Model",
-                "Select a model before attempting deletion.",
-            )
+            self.window.show_info("Delete Model", "Select a model before attempting deletion.")
             return
 
-        confirm = widgets.QMessageBox.question(
-            parent,
-            "Delete Model",
-            f"Delete model '{name}'? This action cannot be undone.",
-            widgets.QMessageBox.StandardButton.Yes
-            | widgets.QMessageBox.StandardButton.No,
-            widgets.QMessageBox.StandardButton.No,
-        )
-        if confirm != widgets.QMessageBox.StandardButton.Yes:
+        if not self.window.ask_confirm(
+            "Delete Model", f"Delete model '{name}'? This action cannot be undone."
+        ):
             return
 
         operation = f"Delete model {name}"
@@ -111,41 +97,33 @@ class ModelController:
         )
 
     def _model_stream_op(self, parent, title: str, method: str) -> None:
-        widgets = __import__("PySide6.QtWidgets", fromlist=["QInputDialog", "QMessageBox"])
-        name, ok = widgets.QInputDialog.getText(
-            parent,
-            title,
-            "Model name:",
-            text=self.window.model_name().strip(),
-        )
+        name, ok = self.window.ask_text(title, "Model name:", self.window.model_name().strip())
         if not ok:
             return
         name = name.strip()
         if not name:
-            widgets.QMessageBox.information(parent, title, "Model name is required.")
+            self.window.show_info(title, "Model name is required.")
             return
 
         operation = f"{title}: {name}"
         parser = OperationStreamParser()
         self.window.begin_operation(operation)
-        task = StreamTask(
-            lambda: getattr(create_backend(self.config.active_profile()), method)(name)
-        )
-        self.window.add_worker(task)
 
-        def on_stream(chunk: str) -> None:
+        def on_token(chunk: str) -> None:
             for update in parser.feed(chunk):
                 self.window.update_operation(update)
 
-        def on_completed(_output: str) -> None:
+        def on_done(_output: str) -> None:
             self.window.complete_operation(operation)
             self.window.refresh_backend()
 
         def on_error(error: str) -> None:
             self.window.fail_operation(operation, error)
-            widgets.QMessageBox.critical(parent, title, error)
+            self.window.show_error(title, error)
 
-        task.token.connect(on_stream)
-        task.completed.connect(on_completed)
-        task.error.connect(on_error)
-        task.start()
+        self.window.run_stream(
+            lambda: getattr(create_backend(self.config.active_profile()), method)(name),
+            on_token,
+            on_done,
+            on_error,
+        )

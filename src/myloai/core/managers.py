@@ -10,7 +10,14 @@ from types import ModuleType
 from typing import Any, Protocol
 
 from myloai.core.config import AppConfig
-from myloai.core.domain import AgentProfile, ChatSession, PromptRecord, now_iso
+from myloai.core.domain import (
+    AgentProfile,
+    ChatMessage,
+    ChatSession,
+    PromptRecord,
+    SkillRecord,
+    now_iso,
+)
 
 
 class SessionManager:
@@ -99,6 +106,135 @@ class AgentManager:
         agents.append(agent)
         self.save_all(agents)
 
+    def get(self, agent_id: str) -> AgentProfile | None:
+        return next((a for a in self.list() if a.id == agent_id), None)
+
+
+class SkillManager:
+    """Stores skills as <skills_dir>/<id>/SKILL.md with a small frontmatter header."""
+
+    def __init__(self, config: AppConfig) -> None:
+        self.config = config
+        self.root = config.paths.skills_dir
+        self.root.mkdir(parents=True, exist_ok=True)
+
+    def _path(self, skill_id: str) -> Path:
+        return self.root / skill_id / "SKILL.md"
+
+    @staticmethod
+    def _serialize(skill: SkillRecord) -> str:
+        header = [
+            "---",
+            f"name: {skill.name}",
+            f"description: {skill.description}",
+            f"version: {skill.version}",
+            f"tags: {','.join(skill.tags)}",
+            "---",
+            "",
+            skill.instructions,
+            "",
+        ]
+        return "\n".join(header)
+
+    @staticmethod
+    def _parse(text: str, skill_id: str) -> SkillRecord:
+        lines = text.splitlines()
+        name = skill_id
+        description = ""
+        version = "1.0.0"
+        tags: list[str] = []
+        body_start = 0
+        if lines and lines[0].strip() == "---":
+            for idx, line in enumerate(lines[1:], start=1):
+                if line.strip() == "---":
+                    body_start = idx + 1
+                    break
+                if ":" in line:
+                    key, _, value = line.partition(":")
+                    key = key.strip().lower()
+                    value = value.strip()
+                    if key == "name":
+                        name = value or name
+                    elif key == "description":
+                        description = value
+                    elif key == "version":
+                        version = value or version
+                    elif key == "tags":
+                        tags = [t.strip() for t in value.split(",") if t.strip()]
+        instructions = "\n".join(lines[body_start:]).strip()
+        return SkillRecord(
+            name=name,
+            instructions=instructions,
+            description=description,
+            version=version,
+            tags=tags,
+            id=skill_id,
+        )
+
+    def list(self) -> list[SkillRecord]:
+        skills = []
+        for path in sorted(self.root.glob("*/SKILL.md")):
+            try:
+                skills.append(self._parse(path.read_text(encoding="utf-8"), path.parent.name))
+            except OSError:
+                continue
+        return skills
+
+    def get(self, skill_id: str) -> SkillRecord | None:
+        path = self._path(skill_id)
+        if not path.exists():
+            return None
+        return self._parse(path.read_text(encoding="utf-8"), skill_id)
+
+    def upsert(self, skill: SkillRecord) -> None:
+        path = self._path(skill.id)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(self._serialize(skill), encoding="utf-8")
+
+    def delete(self, skill_id: str) -> None:
+        path = self._path(skill_id)
+        if path.exists():
+            path.unlink()
+            try:
+                path.parent.rmdir()
+            except OSError:
+                pass
+
+    def import_file(self, path: Path) -> SkillRecord:
+        skill = self._parse(path.read_text(encoding="utf-8"), path.stem)
+        self.upsert(skill)
+        return skill
+
+    def export(self, skill: SkillRecord, path: Path) -> None:
+        path.write_text(self._serialize(skill), encoding="utf-8")
+
+
+def apply_skill_to_session(session: ChatSession, skill: SkillRecord) -> None:
+    """Apply a skill's instructions as the chat session's system prompt."""
+    session.system_prompt = skill.instructions
+    system_message = next((m for m in session.messages if m.role == "system"), None)
+    if system_message is not None:
+        system_message.content = skill.instructions
+    else:
+        session.messages.insert(0, ChatMessage("system", skill.instructions))
+
+
+def apply_agent_to_session(session: ChatSession, agent: AgentProfile, prompts: list[PromptRecord]) -> None:
+    """Apply an agent profile to a chat session: model, system prompt, and reasoning options."""
+    session.agent_id = agent.id
+    if agent.model:
+        session.model = agent.model
+    prompt = next((p for p in prompts if p.id == agent.system_prompt_id), None)
+    if prompt is not None:
+        session.system_prompt = prompt.content
+        system_message = next((m for m in session.messages if m.role == "system"), None)
+        if system_message is not None:
+            system_message.content = prompt.content
+        else:
+            session.messages.insert(0, ChatMessage("system", prompt.content))
+    if agent.reasoning_mode == "thinking":
+        session.parameters = {**session.parameters, "think": True}
+
 
 class PluginAPI(Protocol):
     manifest: dict[str, Any]
@@ -116,18 +252,55 @@ class PluginContext:
         self.commands: dict[str, Any] = {}
         self.chat_interceptors: list[Any] = []
         self.memory_providers: dict[str, Any] = {}
+        self.panels: list[Any] = []
+        self.active_plugin_id: str = ""
+        self._registrations: dict[str, list[tuple[str, Any]]] = {}
+
+    def _track(self, kind: str, key: Any) -> None:
+        if self.active_plugin_id:
+            self._registrations.setdefault(self.active_plugin_id, []).append((kind, key))
 
     def register_tool(self, name: str, callable_: Any) -> None:
         self.tools[name] = callable_
+        self._track("tool", name)
 
     def register_command(self, name: str, callable_: Any) -> None:
         self.commands[name] = callable_
+        self._track("command", name)
 
     def register_chat_interceptor(self, callable_: Any) -> None:
         self.chat_interceptors.append(callable_)
+        self._track("chat_interceptor", callable_)
 
-    def add_panel(self, title: str, widget: Any, area: Any = None) -> None:
-        self.main_window.add_plugin_panel(title, widget, area)
+    def register_memory_provider(self, name: str, provider: Any) -> None:
+        self.memory_providers[name] = provider
+        self._track("memory_provider", name)
+
+    def add_panel(self, title: str, widget: Any, area: Any = None) -> Any:
+        dock = self.main_window.add_plugin_panel(title, widget, area)
+        self.panels.append(dock)
+        self._track("panel", dock)
+        return dock
+
+    def unregister_plugin(self, plugin_id: str) -> None:
+        for kind, key in self._registrations.pop(plugin_id, []):
+            if kind == "tool":
+                self.tools.pop(key, None)
+            elif kind == "command":
+                self.commands.pop(key, None)
+            elif kind == "chat_interceptor":
+                if key in self.chat_interceptors:
+                    self.chat_interceptors.remove(key)
+            elif kind == "memory_provider":
+                self.memory_providers.pop(key, None)
+            elif kind == "panel":
+                if key in self.panels:
+                    self.panels.remove(key)
+                try:
+                    key.setVisible(False)
+                    key.deleteLater()
+                except RuntimeError:
+                    pass
 
 
 class LoadedPlugin:
@@ -224,6 +397,14 @@ class PluginManager:
             self.config.trusted_plugins.remove(plugin_id)
         self.config.save()
 
+    def install(self, source: Path) -> Path:
+        """Copy a plugin file into the user plugin directory after static manifest validation."""
+        self._read_static_manifest(source)
+        dest = self.config.paths.plugins_dir / source.name
+        self.config.paths.plugins_dir.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(source, dest)
+        return dest
+
     def enable(self, path: Path) -> None:
         manifest = self._read_static_manifest(path)
         plugin_id = manifest["id"]
@@ -238,7 +419,14 @@ class PluginManager:
         runtime_manifest = self._validate_manifest(getattr(instance, "manifest", {}), path)
         if runtime_manifest.get("id") != plugin_id:
             raise ValueError(f"Plugin {path.name} manifest ID changed between discovery and load")
-        instance.activate(self.context)
+        self.context.active_plugin_id = plugin_id
+        try:
+            instance.activate(self.context)
+        except Exception:
+            self.context.unregister_plugin(plugin_id)
+            self.context.active_plugin_id = ""
+            raise
+        self.context.active_plugin_id = ""
         self.loaded[plugin_id] = LoadedPlugin(path, module, instance)
         self.config.enabled_plugins[plugin_id] = True
         self.config.save()
@@ -247,6 +435,7 @@ class PluginManager:
         loaded = self.loaded.pop(plugin_id, None)
         if loaded:
             loaded.instance.deactivate()
+        self.context.unregister_plugin(plugin_id)
         self.config.enabled_plugins[plugin_id] = False
         self.config.save()
 
@@ -278,7 +467,7 @@ class PluginManager:
             path.unlink()
 
     def _load_module(self, path: Path) -> ModuleType:
-        spec = importlib.util.spec_from_file_location(f"locallama_user_plugin_{path.stem}", path)
+        spec = importlib.util.spec_from_file_location(f"myloai_user_plugin_{path.stem}", path)
         if spec is None or spec.loader is None:
             raise ImportError(f"Cannot load plugin at {path}")
         module = importlib.util.module_from_spec(spec)

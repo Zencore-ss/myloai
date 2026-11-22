@@ -7,7 +7,12 @@ from typing import Any
 
 import httpx
 
-from myloai.backends.base import BackendStatus, LLMBackend
+from myloai.backends.base import (
+    BackendStatus,
+    LLMBackend,
+    normalize_tool_calls,
+    serialize_chat_messages,
+)
 from myloai.core.domain import ChatMessage, ModelInfo
 
 
@@ -46,9 +51,9 @@ class OpenAICompatibleBackend(LLMBackend):
         options: dict[str, Any],
         stream: bool,
     ) -> AsyncIterator[str]:
-        payload = {
+        payload: dict[str, Any] = {
             "model": model,
-            "messages": [{"role": m.role, "content": m.content} for m in messages],
+            "messages": serialize_chat_messages(messages),
             "temperature": options.get("temperature", 0.7),
             "top_p": options.get("top_p", 0.9),
             "max_tokens": options.get("num_predict", 512),
@@ -56,6 +61,9 @@ class OpenAICompatibleBackend(LLMBackend):
         }
         if options.get("stop"):
             payload["stop"] = options["stop"]
+        if options.get("tools"):
+            payload["tools"] = options["tools"]
+            payload["tool_choice"] = "auto"
         async with httpx.AsyncClient(timeout=None, headers=self._headers()) as client:
             if stream:
                 async with client.stream("POST", f"{self.base_url}/chat/completions", json=payload) as response:
@@ -74,3 +82,31 @@ class OpenAICompatibleBackend(LLMBackend):
                 response = await client.post(f"{self.base_url}/chat/completions", json=payload)
                 response.raise_for_status()
                 yield response.json().get("choices", [{}])[0].get("message", {}).get("content", "")
+
+    async def chat_collect(
+        self,
+        model: str,
+        messages: list[ChatMessage],
+        options: dict[str, Any],
+    ) -> dict[str, Any]:
+        payload = {
+            "model": model,
+            "messages": serialize_chat_messages(messages),
+            "temperature": options.get("temperature", 0.7),
+            "top_p": options.get("top_p", 0.9),
+            "max_tokens": options.get("num_predict", 512),
+            "stream": False,
+        }
+        if options.get("stop"):
+            payload["stop"] = options["stop"]
+        if options.get("tools"):
+            payload["tools"] = options["tools"]
+            payload["tool_choice"] = "auto"
+        async with httpx.AsyncClient(timeout=None, headers=self._headers()) as client:
+            response = await client.post(f"{self.base_url}/chat/completions", json=payload)
+            response.raise_for_status()
+        message = response.json().get("choices", [{}])[0].get("message", {})
+        return {
+            "content": message.get("content", "") or "",
+            "tool_calls": normalize_tool_calls(message.get("tool_calls")),
+        }

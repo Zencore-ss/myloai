@@ -86,6 +86,16 @@ This document is the working tracker for defects discovered during manual testin
 - **Fix notes:** `ChatTab.render()` now reads the active Qt palette and applies its base/text colors to each rendered message block. The custom dark theme continues to provide the dark palette while System/light uses the native palette.
 - **Verification:** Static verification confirms the renderer no longer hard-codes the message-block background and text pair. Dark and System/light GUI smoke testing should be included in the next native desktop validation run.
 
+### BUG-006 — Sample plugin referenced a nonexistent window attribute
+
+- **Status:** fixed
+- **Severity:** medium
+- **Area:** plugins
+- **Observed:** `plugins/sample_plugin.py` registered a command that wrote to `context.main_window.terminal`, an attribute `MainWindow` does not have; invoking the command would raise `AttributeError`.
+- **Expected:** The sample plugin only uses real window attributes.
+- **Fix notes:** The command now writes to the diagnostics `console_view`; the plugin also demonstrates `register_memory_provider`.
+- **Verification:** `tests/test_architecture.py` keeps controllers framework-agnostic; plugin lifecycle tests cover registration cleanup.
+
 ## Open bugs
 
 No currently documented open bugs remain in this tracker.

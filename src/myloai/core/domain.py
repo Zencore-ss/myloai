@@ -33,6 +33,7 @@ class ChatSession:
     provider: str = "Local Ollama"
     model: str = ""
     system_prompt: str = ""
+    agent_id: str = ""
     messages: list[ChatMessage] = field(default_factory=list)
     parameters: dict[str, Any] = field(default_factory=dict)
 
@@ -96,6 +97,16 @@ class PromptRecord:
     id: str = field(default_factory=lambda: str(uuid.uuid4()))
     versions: list[dict[str, str]] = field(default_factory=list)
     updated_at: str = field(default_factory=now_iso)
+
+
+@dataclass(slots=True)
+class SkillRecord:
+    name: str
+    instructions: str
+    description: str = ""
+    version: str = "1.0.0"
+    tags: list[str] = field(default_factory=list)
+    id: str = field(default_factory=lambda: str(uuid.uuid4()))
 
 
 @dataclass(slots=True)

@@ -1,6 +1,6 @@
 # MyLoAI Control Center Architecture
 
-Date: 2026-08-17
+Date: 2026-11-22
 Status: Canonical architecture reference for the active application.
 
 ## 1. Purpose and scope
@@ -1116,3 +1116,13 @@ Tests live under `tests/` and cover backend behavior, configuration, chat view/c
 8. Configuration schema changes require a migration boundary and regression coverage.
 9. Persistent data compatibility must be treated separately from application package versioning.
 10. Diagnostics should make asynchronous operations and failures observable.
+
+## GUI framework boundary (UI adapter pattern)
+
+The application is not hardwired to PySide6:
+
+- `src/myloai/core/` and `src/myloai/backends/` contain all domain, configuration, backend, MCP, skills, plugin-lifecycle, and tool-registry logic. They import no GUI framework. `tests/test_architecture.py` enforces this boundary.
+- `src/myloai/ui/controllers/` talk to the window exclusively through `Protocol` ports (`ChatWindowPort`, `ModelWindowPort`, `PluginWindowPort`) and import no GUI framework either.
+- `src/myloai/ui/` is the PySide6 adapter: `MainWindow` implements the ports, owns Qt widgets, menus, docks, workers, and dialogs. An alternative GUI framework can be added later by implementing the same ports and managers without touching `core/` or `backends/`.
+- Menus are built once, correctly, in `MainWindow._build_menus()` (`src/myloai/ui/main_window.py`); there is no runtime menu patching layer. `docs/MENU_MAP.md` is the per-item contract.
+- Plugins are user code and may use Qt (like the sample plugin), but the SDK contracts (`PluginContext`) are framework-agnostic.

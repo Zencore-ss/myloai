@@ -69,6 +69,7 @@ def test_config_save_load_roundtrip(tmp_path: Path):
         sessions_dir=tmp_path / "data" / "sessions",
         prompts_dir=tmp_path / "data" / "prompts",
         agents_dir=tmp_path / "data" / "agents",
+        skills_dir=tmp_path / "data" / "skills",
         modelfiles_dir=tmp_path / "data" / "modelfiles",
         plugins_dir=tmp_path / "data" / "plugins",
     )

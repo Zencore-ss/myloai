@@ -1,5 +1,8 @@
 # Production Code Map
 
+> **Note (2026-11-22, v2.2.0):** `src/myloai/ui/production_fixes.py` has been removed. Menus are now built correctly in a single place (`MainWindow._build_menus()`); see `docs/MENU_MAP.md`. Historical references to `apply_production_fixes` below describe the pre-2.2.0 state.
+
+
 Date: 2026-05-25
 Scope: Baseline production map for Phase 1 documentation sync.
 
@@ -57,7 +60,7 @@ Scope: Baseline production map for Phase 1 documentation sync.
 
 ## AUDIT SEQUENCE: 1
 
-- **Repository:** `GR00T-User-706/myloai`
+- **Repository:** `Zencore-ss/myloai`
 - **Repository-relative file:** `src/myloai/__main__.py`
 - **Filename:** `__main__.py`
 - **Language:** Python
@@ -230,7 +233,7 @@ STATUS: FULLY MAPPED
 
 ## AUDIT SEQUENCE: 2
 
-- **Repository:** `GR00T-User-706/myloai`
+- **Repository:** `Zencore-ss/myloai`
 - **Repository-relative file:** `src/myloai/app.py`
 - **Filename:** `app.py`
 - **Language:** Python
@@ -518,7 +521,7 @@ STATUS: FULLY MAPPED
 
 ## AUDIT SEQUENCE: 3
 
-- **Repository:** `GR00T-User-706/myloai`
+- **Repository:** `Zencore-ss/myloai`
 - **Repository-relative file:** `src/myloai/core/config.py`
 - **Filename:** `config.py`
 - **Language:** Python

@@ -36,7 +36,7 @@ This Code of Conduct applies within all community spaces, and also applies when 
 
 ## Enforcement
 
-Instances of abusive, harassing, or otherwise unacceptable behavior may be reported privately to the project maintainer at conduct@locallama-gui.org.
+Instances of abusive, harassing, or otherwise unacceptable behavior may be reported privately to the project maintainer at crypto_code_weaver_syndicate@proton.me.
 
 All complaints will be reviewed and investigated promptly and fairly.
 

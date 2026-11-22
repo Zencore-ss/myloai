@@ -1,6 +1,6 @@
 # Feature Matrix and Application Contract
 
-Date: 2026-08-17
+Date: 2026-11-22
 Scope: Entire active application under `src/myloai/`.
 
 This is the canonical contract for visible application capabilities. A row describes behavior the application is expected to provide. Status reflects the current implementation state, not a promise about every backend/environment.
@@ -103,13 +103,13 @@ Backend availability, authentication, model availability, desktop environment, a
 | Agents | Save | implemented | Agent profiles persist to JSON. | `AgentManager` |
 | Agents | Import | implemented | Agent JSON can be imported. | `AgentBuilderDialog` |
 | Agents | Export | implemented | Current agent can be exported as JSON. | `AgentBuilderDialog` |
-| Agents | Execution integration | partial | Profiles contain model/reasoning/behavior/memory/tool/plugin policy fields, but the active chat path does not yet make those profiles the generation/execution authority. | `core/domain.py`, `ui/dialogs.py`, chat/controller paths |
+| Agents | Execution integration | implemented | The toolbar agent picker applies the agent's model, linked system prompt, and reasoning mode to the chat session; generation resolves the agent's model and per-session parameters; sessions persist `agent_id`. | `core/managers.py` (`apply_agent_to_session`), `ui/main_window.py` |
 
 ## 8. Plugins
 
 | Area | Action | Status | Contract / current behavior | Primary implementation |
 |---|---|---|---|---|
-| Plugins | Install | partial | Copies a selected Python file into the configured plugin directory; trust/enable remain separate lifecycle operations. | `ui/controllers/plugin_controller.py` |
+| Plugins | Install | implemented | Validates the static manifest, then copies the selected Python file into the configured plugin directory; the Plugin Manager dialog exposes trust, enable/disable, reload, and uninstall. | `core/managers.py` (`PluginManager.install`), `ui/controllers/plugin_controller.py`, `ui/dialogs.py` |
 | Plugins | Discover | implemented | Reads static manifests without importing plugin code. | `PluginManager` |
 | Plugins | Validate | implemented | Requires manifest `id`, `name`, and `version`, with runtime ID consistency validation. | `PluginManager` |
 | Plugins | Trust | implemented | Explicitly records trust for a valid discovered plugin. | `PluginManager` |
@@ -118,7 +118,7 @@ Backend availability, authentication, model availability, desktop environment, a
 | Plugins | Reload | implemented | Disables loaded plugins and reloads enabled plugins. | `PluginManager` |
 | Plugins | Untrust | implemented | Disables the plugin and removes persisted trust. | `PluginManager` |
 | Plugins | Remove | implemented | Disables/untrusts, clears persisted state, and removes the plugin file. | `PluginManager` |
-| Plugins | Plugin context | implemented | Provides tool, command, chat-interceptor, memory-provider and UI-panel registration points. | `PluginContext` |
+| Plugins | Plugin context | implemented | Provides tool, command, chat-interceptor, memory-provider and UI-panel registration points; registrations are tracked per plugin and removed on disable/reload. | `PluginContext` |
 | Plugins | Startup isolation | implemented | Invalid or failing enabled plugins are skipped instead of preventing application startup. | `PluginManager.load_enabled()` |
 
 ## 9. Parameters
@@ -170,6 +170,32 @@ Backend availability, authentication, model availability, desktop environment, a
 | Desktop | Linux desktop entry | implemented | Production desktop-entry metadata uses the canonical `myloai` command. | `packaging/linux/myloai.desktop` |
 | Desktop | Source-tree launcher | implemented | Development launcher delegates to the Python application entry point and is not used by native production packages. | `python -m myloai` |
 | Desktop | Source-tree launcher installation | implemented | Development-only helpers install the repository launcher/desktop entry into the user environment. | `scripts/install-launcher`, `scripts/install-desktop-entry` |
+
+
+## 14a. MCP (Model Context Protocol)
+
+| Area | Action | Status | Contract / current behavior | Primary implementation |
+|---|---|---|---|---|
+| MCP | Server management | implemented | MCP Servers dialog adds/removes/enables stdio MCP servers; config persists them (schema v3 `mcp_servers`). | `core/config.py`, `ui/dialogs.py` (`McpServersDialog`) |
+| MCP | Connect/discover | implemented | Enabled servers start as subprocesses; initialize handshake + `tools/list`; per-server failure isolation. | `core/mcp.py` (`McpManager`, `McpClient`) |
+| MCP | Tool registry | implemented | MCP tools registered as `server__tool`; plugin tools registered by name; OpenAI-style schemas sent in chat payloads when tools are available. | `core/tools.py`, `backends/ollama.py`, `backends/openai.py` |
+| MCP | Tool execution loop | implemented | Non-streaming chat collects tool_calls, executes via registry (MCP or plugin), appends tool results, and re-requests (max 5 rounds). | `ui/main_window.py` (`_generate_with_tools`) |
+
+## 14b. Skills
+
+| Area | Action | Status | Contract / current behavior | Primary implementation |
+|---|---|---|---|---|
+| Skills | Builder | implemented | Skills Builder creates/edits/deletes skills stored as `<skills_dir>/<id>/SKILL.md` with frontmatter. | `core/managers.py` (`SkillManager`), `ui/dialogs.py` (`SkillBuilderDialog`) |
+| Skills | Apply | implemented | Skills menu / Skills dock apply a skill's instructions as the chat system prompt. | `core/managers.py` (`apply_skill_to_session`), `ui/main_window.py` |
+| Skills | Import/Export | implemented | SKILL.md import/export. | `SkillManager` |
+
+## 14c. Menus and UI structure
+
+| Area | Action | Status | Contract / current behavior | Primary implementation |
+|---|---|---|---|---|
+| Menus | Single-source construction | implemented | All menus are built once in `MainWindow._build_menus()`; the runtime patch layer (`ui/production_fixes.py`) was removed. Per-item contract in `docs/MENU_MAP.md`. | `ui/main_window.py` |
+| UI | Framework boundary | implemented | `core/`, `backends/`, and `ui/controllers/` import no GUI framework (enforced by `tests/test_architecture.py`); PySide6 lives only in the `ui/` adapter. | `docs/ARCHITECTURE.md` |
+| Help | Learning guide | implemented | Help > What is all this? opens the bundled plain-language `docs/LEARNING_GUIDE.md`. | `ui/main_window.py`, `docs/LEARNING_GUIDE.md` |
 
 ## 14. Contract rules
 

@@ -18,6 +18,7 @@ datas = collect_data_files(PACKAGE, include_py_files=False) + copy_metadata("key
 datas += [
     (str(ROOT_DIR / "packaging" / "USER_MANUAL.md"), "docs"),
     (str(ROOT_DIR / "docs" / "PLUGIN_SDK.md"), "docs"),
+    (str(ROOT_DIR / "docs" / "LEARNING_GUIDE.md"), "docs"),
 ]
 
 analysis = Analysis(

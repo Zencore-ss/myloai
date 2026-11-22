@@ -26,9 +26,10 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from myloai.core.config import AppConfig, ProviderProfile
-from myloai.core.domain import AgentProfile, PromptRecord
-from myloai.core.managers import AgentManager, PluginManager, PromptManager
+from myloai.core.config import AppConfig, McpServerConfig, ProviderProfile
+from myloai.core.domain import AgentProfile, PromptRecord, SkillRecord
+from myloai.core.managers import AgentManager, PluginManager, PromptManager, SkillManager
+from myloai.core.mcp import McpManager
 
 
 class ModelfileHighlighter(QSyntaxHighlighter):
@@ -320,6 +321,7 @@ class AgentBuilderDialog(QDialog):
         manager: AgentManager,
         models: list[str],
         plugins: list[str],
+        prompts: list[PromptRecord],
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
@@ -332,6 +334,10 @@ class AgentBuilderDialog(QDialog):
         self.name = QLineEdit("New Agent")
         self.model = QComboBox()
         self.model.addItems(models)
+        self.system_prompt = QComboBox()
+        self.system_prompt.addItem("(none)", "")
+        for prompt in prompts:
+            self.system_prompt.addItem(f"{prompt.category}: {prompt.title}", prompt.id)
         self.reasoning = QComboBox()
         self.reasoning.addItems(["normal", "thinking", "planner"])
         self.behavior = QComboBox()
@@ -346,6 +352,7 @@ class AgentBuilderDialog(QDialog):
         for label, widget in [
             ("Name", self.name),
             ("Model", self.model),
+            ("System Prompt", self.system_prompt),
             ("Reasoning", self.reasoning),
             ("Behavior", self.behavior),
             ("Memory", self.memory),
@@ -384,6 +391,8 @@ class AgentBuilderDialog(QDialog):
         self.current_id = a.id
         self.name.setText(a.name)
         self.model.setCurrentText(a.model)
+        idx = self.system_prompt.findData(a.system_prompt_id)
+        self.system_prompt.setCurrentIndex(max(idx, 0))
         self.reasoning.setCurrentText(a.reasoning_mode)
         self.behavior.setCurrentText(a.behavior)
         self.memory.setCurrentText(a.memory_mode)
@@ -399,6 +408,7 @@ class AgentBuilderDialog(QDialog):
         return AgentProfile(
             name=self.name.text(),
             model=self.model.currentText(),
+            system_prompt_id=self.system_prompt.currentData() or "",
             tools=[x.strip() for x in self.tools.text().split(",") if x.strip()],
             plugins=[x.strip() for x in self.plugins.text().split(",") if x.strip()],
             memory_mode=self.memory.currentText(),
@@ -434,17 +444,20 @@ class PluginManagerDialog(QDialog):
         self.setWindowTitle("Plugin Manager")
         self.resize(760, 480)
         self.manager = manager
-        self.table = QTableWidget(0, 5)
-        self.table.setHorizontalHeaderLabels(["Enabled", "ID", "Name", "Version", "Path/Error"])
+        self.table = QTableWidget(0, 6)
+        self.table.setHorizontalHeaderLabels(["Enabled", "Trusted", "ID", "Name", "Version", "Path/Error"])
         reload_btn = QPushButton("Reload Plugins")
         reload_btn.clicked.connect(self.reload_plugins)
-        save_btn = QPushButton("Apply Enable/Disable")
+        save_btn = QPushButton("Apply Enable/Trust")
         save_btn.clicked.connect(self.apply)
+        uninstall_btn = QPushButton("Uninstall Selected")
+        uninstall_btn.clicked.connect(self.uninstall_selected)
         layout = QVBoxLayout(self)
         layout.addWidget(self.table)
         row = QHBoxLayout()
         row.addWidget(save_btn)
         row.addWidget(reload_btn)
+        row.addWidget(uninstall_btn)
         row.addStretch()
         layout.addLayout(row)
         self.refresh()
@@ -461,9 +474,14 @@ class PluginManagerDialog(QDialog):
                 else "false"
             )
             enabled.setFlags(enabled.flags() | Qt.ItemFlag.ItemIsEditable)
+            trusted = QTableWidgetItem(
+                "true" if p.get("id", "") in self.manager.config.trusted_plugins else "false"
+            )
+            trusted.setFlags(trusted.flags() | Qt.ItemFlag.ItemIsEditable)
             for c, val in enumerate(
                 [
                     enabled,
+                    trusted,
                     p.get("id", ""),
                     p.get("name", ""),
                     p.get("version", ""),
@@ -477,11 +495,38 @@ class PluginManagerDialog(QDialog):
     def apply(self) -> None:
         for r, p in enumerate(self.plugins):
             pid = p.get("id", "")
+            if not pid or p.get("error"):
+                continue
             enabled = self.table.item(r, 0).text().lower() in {"true", "1", "yes", "enabled"}
-            if enabled and pid not in self.manager.loaded:
-                self.manager.enable(Path(p["path"]))
-            elif not enabled and pid in self.manager.loaded:
-                self.manager.disable(pid)
+            trusted = self.table.item(r, 1).text().lower() in {"true", "1", "yes", "trusted"}
+            try:
+                if trusted and pid not in self.manager.config.trusted_plugins:
+                    self.manager.trust(pid)
+                if not trusted and pid in self.manager.config.trusted_plugins:
+                    self.manager.untrust(pid)
+                if enabled and pid not in self.manager.loaded:
+                    self.manager.enable(Path(p["path"]))
+                elif not enabled and pid in self.manager.loaded:
+                    self.manager.disable(pid)
+            except (PermissionError, ValueError, OSError) as error:
+                QMessageBox.warning(self, "Plugin Manager", str(error))
+        self.refresh()
+
+    def uninstall_selected(self) -> None:
+        row = self.table.currentRow()
+        if row < 0 or row >= len(self.plugins):
+            return
+        pid = self.plugins[row].get("id", "")
+        if not pid or self.plugins[row].get("error"):
+            return
+        answer = QMessageBox.question(
+            self,
+            "Uninstall Plugin",
+            f"Uninstall plugin '{pid}'? This disables it, removes trust, and deletes the plugin file.",
+        )
+        if answer != QMessageBox.StandardButton.Yes:
+            return
+        self.manager.remove(pid)
         self.refresh()
 
     def reload_plugins(self) -> None:
@@ -592,3 +637,277 @@ class ParameterDialog(QDialog):
             setattr(p, name, value)
         self.config.save()
         super().accept()
+
+
+class McpServersDialog(QDialog):
+    """Manage MCP server processes: add/remove servers, toggle, test, inspect tools."""
+
+    def __init__(self, config: AppConfig, mcp: McpManager, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setWindowTitle("MCP Servers")
+        self.resize(860, 520)
+        self.config = config
+        self.mcp = mcp
+        self.table = QTableWidget(0, 5)
+        self.table.setHorizontalHeaderLabels(["Enabled", "Name", "Command", "Args", "Transport"])
+        add = QPushButton("Add")
+        remove = QPushButton("Remove Selected")
+        test = QPushButton("Test Connection")
+        tools_btn = QPushButton("List Tools")
+        add.clicked.connect(self.add_row)
+        remove.clicked.connect(lambda: self.table.removeRow(self.table.currentRow()))
+        test.clicked.connect(self.test_selected)
+        tools_btn.clicked.connect(self.list_tools_selected)
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel
+        )
+        buttons.accepted.connect(self.accept)
+        buttons.rejected.connect(self.reject)
+        layout = QVBoxLayout(self)
+        layout.addWidget(self.table)
+        row = QHBoxLayout()
+        row.addWidget(add)
+        row.addWidget(remove)
+        row.addWidget(test)
+        row.addWidget(tools_btn)
+        row.addStretch()
+        layout.addLayout(row)
+        layout.addWidget(buttons)
+        self.refresh()
+
+    def refresh(self) -> None:
+        self.table.setRowCount(0)
+        for server in self.config.mcp_servers:
+            self._insert_row(server)
+
+    def _insert_row(self, server: McpServerConfig) -> None:
+        r = self.table.rowCount()
+        self.table.insertRow(r)
+        enabled = QTableWidgetItem("true" if server.enabled else "false")
+        enabled.setFlags(enabled.flags() | Qt.ItemFlag.ItemIsEditable)
+        for c, value in enumerate(
+            [
+                enabled,
+                server.name,
+                server.command,
+                " ".join(server.args),
+                server.transport,
+            ]
+        ):
+            self.table.setItem(
+                r, c, value if isinstance(value, QTableWidgetItem) else QTableWidgetItem(str(value))
+            )
+
+    def add_row(self) -> None:
+        self._insert_row(McpServerConfig(name="New MCP Server", command="npx"))
+
+    def _selected_server(self) -> str:
+        row = self.table.currentRow()
+        if row < 0:
+            return ""
+        return self.table.item(row, 1).text().strip()
+
+    def _collect(self) -> list[McpServerConfig]:
+        servers = []
+        for r in range(self.table.rowCount()):
+            servers.append(
+                McpServerConfig(
+                    name=self.table.item(r, 1).text().strip() or f"server-{r}",
+                    command=self.table.item(r, 2).text().strip(),
+                    args=[a for a in self.table.item(r, 3).text().split() if a],
+                    enabled=self.table.item(r, 0).text().lower() in {"true", "1", "yes"},
+                    transport=self.table.item(r, 4).text().strip() or "stdio",
+                )
+            )
+        return servers
+
+    def accept(self) -> None:
+        self.config.mcp_servers = self._collect()
+        self.config.save()
+        super().accept()
+
+    def test_selected(self) -> None:
+        name = self._selected_server()
+        if not name:
+            QMessageBox.information(self, "MCP Servers", "Select a server row first.")
+            return
+        server = next((s for s in self._collect() if s.name == name), None)
+        if server is None:
+            return
+        self.config.mcp_servers = self._collect()
+        from myloai.ui.workers import AsyncTask
+
+        def work():
+            async def run():
+                from myloai.core.mcp import McpClient
+
+                client = McpClient(server)
+                try:
+                    await client.start()
+                    tools = await client.list_tools()
+                    return f"Connected. {len(tools)} tools: " + ", ".join(t.name for t in tools)
+                finally:
+                    await client.stop()
+
+            import asyncio
+
+            return asyncio.get_event_loop_policy().new_event_loop().run_until_complete(run())
+
+        task = AsyncTask(work)
+        task.result.connect(lambda msg: QMessageBox.information(self, "MCP Test", str(msg)))
+        task.error.connect(lambda err: QMessageBox.critical(self, "MCP Test", str(err)))
+        task.start()
+        self._test_task = task
+
+    def list_tools_selected(self) -> None:
+        name = self._selected_server()
+        if not name:
+            QMessageBox.information(self, "MCP Tools", "Select a server row first.")
+            return
+        import asyncio
+        import json as _json
+
+        from myloai.core.mcp import McpClient
+
+        server = next((s for s in self._collect() if s.name == name), None)
+        if server is None:
+            return
+
+        def work():
+            async def run():
+                client = McpClient(server)
+                try:
+                    await client.start()
+                    tools = await client.list_tools()
+                    return _json.dumps(
+                        [
+                            {"name": t.name, "description": t.description, "inputSchema": t.input_schema}
+                            for t in tools
+                        ],
+                        indent=2,
+                    )
+                finally:
+                    await client.stop()
+
+            return asyncio.new_event_loop().run_until_complete(run())
+
+        from myloai.ui.workers import AsyncTask
+
+        task = AsyncTask(work)
+        task.result.connect(lambda text: self._show_details("MCP Tools", str(text)))
+        task.error.connect(lambda err: QMessageBox.critical(self, "MCP Tools", str(err)))
+        task.start()
+        self._tools_task = task
+
+    def _show_details(self, title: str, text: str) -> None:
+        box = QMessageBox(self)
+        box.setWindowTitle(title)
+        box.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        box.setText(text[:1000])
+        box.setDetailedText(text)
+        box.exec()
+
+
+class SkillBuilderDialog(QDialog):
+    """Create, edit, import, export, and delete skills (SKILL.md bundles)."""
+
+    def __init__(self, manager: SkillManager, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setWindowTitle("Skills Builder")
+        self.resize(820, 560)
+        self.manager = manager
+        self.current_id = ""
+        self.skills = QListWidget()
+        self.skills.currentRowChanged.connect(self.load_selected)
+        self.name = QLineEdit("New Skill")
+        self.description = QLineEdit()
+        self.version = QLineEdit("1.0.0")
+        self.tags = QLineEdit()
+        self.instructions = QPlainTextEdit()
+        self.instructions.setPlaceholderText("Skill instructions (become the chat system prompt when applied).")
+        form = QFormLayout()
+        for label, widget in [
+            ("Name", self.name),
+            ("Description", self.description),
+            ("Version", self.version),
+            ("Tags CSV", self.tags),
+        ]:
+            form.addRow(label, widget)
+        buttons_row = QHBoxLayout()
+        for text, slot in [
+            ("New", self.new),
+            ("Save", self.save),
+            ("Delete", self.delete),
+            ("Import", self.import_skill),
+            ("Export", self.export_skill),
+        ]:
+            btn = QPushButton(text)
+            btn.clicked.connect(slot)
+            buttons_row.addWidget(btn)
+        layout = QHBoxLayout(self)
+        layout.addWidget(self.skills, 1)
+        right = QVBoxLayout()
+        right.addLayout(form)
+        right.addWidget(QLabel("Instructions"))
+        right.addWidget(self.instructions)
+        right.addLayout(buttons_row)
+        layout.addLayout(right, 2)
+        self.refresh()
+
+    def refresh(self) -> None:
+        self.items = self.manager.list()
+        self.skills.clear()
+        for skill in self.items:
+            self.skills.addItem(f"{skill.name} (v{skill.version})")
+
+    def load_selected(self, row: int) -> None:
+        if row < 0 or row >= len(self.items):
+            return
+        skill = self.items[row]
+        self.current_id = skill.id
+        self.name.setText(skill.name)
+        self.description.setText(skill.description)
+        self.version.setText(skill.version)
+        self.tags.setText(",".join(skill.tags))
+        self.instructions.setPlainText(skill.instructions)
+
+    def new(self) -> None:
+        self.current_id = ""
+        self.name.setText("New Skill")
+
+    def _skill(self) -> SkillRecord:
+        return SkillRecord(
+            name=self.name.text().strip() or "Untitled Skill",
+            instructions=self.instructions.toPlainText(),
+            description=self.description.text().strip(),
+            version=self.version.text().strip() or "1.0.0",
+            tags=[t.strip() for t in self.tags.text().split(",") if t.strip()],
+            id=self.current_id or SkillRecord("x", "").id,
+        )
+
+    def save(self) -> None:
+        self.manager.upsert(self._skill())
+        self.refresh()
+
+    def delete(self) -> None:
+        if self.current_id:
+            self.manager.delete(self.current_id)
+            self.current_id = ""
+            self.refresh()
+
+    def import_skill(self) -> None:
+        path, _ = QFileDialog.getOpenFileName(self, "Import Skill", filter="Markdown (*.md)")
+        if path:
+            skill = self.manager.import_file(Path(path))
+            self.refresh()
+            idx = next((i for i, s in enumerate(self.items) if s.id == skill.id), -1)
+            if idx >= 0:
+                self.skills.setCurrentRow(idx)
+
+    def export_skill(self) -> None:
+        if not self.current_id:
+            QMessageBox.information(self, "Export Skill", "Select a skill to export.")
+            return
+        path, _ = QFileDialog.getSaveFileName(self, "Export Skill", f"{self.name.text()}.md", "Markdown (*.md)")
+        if path:
+            self.manager.export(self._skill(), Path(path))

@@ -19,6 +19,7 @@ def test_config_load_save_roundtrip(monkeypatch, tmp_path):
             sessions_dir=base / "data" / "sessions",
             prompts_dir=base / "data" / "prompts",
             agents_dir=base / "data" / "agents",
+            skills_dir=base / "data" / "skills",
             modelfiles_dir=base / "data" / "modelfiles",
             plugins_dir=base / "data" / "plugins",
         )
@@ -79,6 +80,7 @@ def test_reasoning_mode_persists_in_config(monkeypatch, tmp_path):
             sessions_dir=base / "data" / "sessions",
             prompts_dir=base / "data" / "prompts",
             agents_dir=base / "data" / "agents",
+            skills_dir=base / "data" / "skills",
             modelfiles_dir=base / "data" / "modelfiles",
             plugins_dir=base / "data" / "plugins",
         )

@@ -6,6 +6,8 @@ from typing import Protocol
 
 class PluginWindowPort(Protocol):
     def log(self, text: str) -> None: ...
+    def ask_open_file(self, title: str, name_filter: str) -> str: ...
+    def show_error(self, title: str, text: str) -> None: ...
 
 
 class PluginController:
@@ -19,8 +21,13 @@ class PluginController:
         self.window.log("Plugins reloaded")
 
     def install_plugin(self, parent) -> None:
-        path, _ = __import__("PySide6.QtWidgets", fromlist=["QFileDialog"]).QFileDialog.getOpenFileName(parent, "Install Plugin", filter="Python (*.py)")
-        if path:
-            dest = self.config.paths.plugins_dir / Path(path).name
-            dest.write_text(Path(path).read_text(encoding="utf-8"), encoding="utf-8")
-            self.window.log(f"Installed plugin {dest}")
+        path = self.window.ask_open_file("Install Plugin", "Python (*.py)")
+        if not path:
+            return
+        try:
+            dest = self.plugins.install(Path(path))
+        except (OSError, ValueError) as error:
+            self.window.log(f"Plugin install rejected: {error}")
+            self.window.show_error("Install Plugin", f"Plugin was not installed:\n{error}")
+            return
+        self.window.log(f"Installed plugin {dest}")

@@ -12,11 +12,16 @@ class Plugin:
         context.register_tool("tool_name", lambda text: text)
         context.register_command("command_name", lambda: None)
         context.register_chat_interceptor(lambda messages: messages)
+        context.register_memory_provider("memory_name", lambda: {})
         context.add_panel("Panel title", some_qwidget)
 
     def deactivate(self):
         print("my_plugin deactivated")
 ```
+
+## Installation and lifecycle
+
+Plugins > Install validates the static manifest and only then copies the file into the user plugin directory. Discovery never imports plugin code. Enabling requires the plugin ID to be present in `trusted_plugins`; the Plugin Manager dialog exposes trust, enable/disable, reload, and uninstall. Everything a plugin registers during `activate()` is tracked per plugin ID and removed again on `disable()` or `reload()`, and a failed `activate()` rolls back its partial registrations.
 
 ## Manifest validation
 
@@ -50,11 +55,11 @@ Only trust plugin IDs from vetted sources, and review plugin source code before 
 
 ## Capabilities
 
-- **Tools**: callable utilities agents and workflows can invoke.
-- **Commands**: UI or automation commands.
-- **Chat interceptors**: receive and return the outbound `ChatMessage` list before a request is sent.
-- **UI extensions**: add custom PySide6 panels with `context.add_panel`.
-- **Memory providers**: custom providers may use `context.memory_providers`; a dedicated registration helper is not yet provided.
+- **Tools**: callable utilities agents and workflows can invoke via `context.register_tool(name, callable)`.
+- **Commands**: UI or automation commands via `context.register_command(name, callable)`.
+- **Chat interceptors**: receive and return the outbound `ChatMessage` list before a request is sent via `context.register_chat_interceptor(callable)`.
+- **UI extensions**: add custom PySide6 panels with `context.add_panel(title, widget, area=None)`.
+- **Memory providers**: custom memory backends via `context.register_memory_provider(name, provider)`.
 - **Backend integrations**: provide command/tool wrappers around additional services.
 
 Plugins run in-process and should avoid blocking the GUI thread. Use worker threads or async clients for slow operations.

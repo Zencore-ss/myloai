@@ -15,6 +15,7 @@ def _paths(tmp_path: Path) -> AppPaths:
         sessions_dir=tmp_path / "data" / "sessions",
         prompts_dir=tmp_path / "data" / "prompts",
         agents_dir=tmp_path / "data" / "agents",
+        skills_dir=tmp_path / "data" / "skills",
         modelfiles_dir=tmp_path / "data" / "modelfiles",
         plugins_dir=tmp_path / "data" / "plugins",
     )
