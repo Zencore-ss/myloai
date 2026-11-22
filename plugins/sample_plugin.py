@@ -19,8 +19,12 @@ class Plugin:
     def activate(self, context) -> None:
         self._active = True
         context.register_tool("uppercase", lambda text: str(text).upper())
-        context.register_command("insert_timestamp", lambda: context.main_window.terminal.appendPlainText("Timestamp command executed"))
+        context.register_command(
+            "insert_timestamp",
+            lambda: context.main_window.console_view.appendPlainText("Timestamp command executed"),
+        )
         context.register_chat_interceptor(self.add_metadata)
+        context.register_memory_provider("sample_memory", lambda: "sample plugin memory")
         panel = QWidget()
         layout = QVBoxLayout(panel)
         layout.addWidget(QLabel("Sample plugin panel"))

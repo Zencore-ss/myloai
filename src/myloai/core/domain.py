@@ -33,6 +33,7 @@ class ChatSession:
     provider: str = "Local Ollama"
     model: str = ""
     system_prompt: str = ""
+    agent_id: str = ""
     messages: list[ChatMessage] = field(default_factory=list)
     parameters: dict[str, Any] = field(default_factory=dict)
 

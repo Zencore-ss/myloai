@@ -1,6 +1,6 @@
 # Feature Matrix and Application Contract
 
-Date: 2026-08-17
+Date: 2026-11-22
 Scope: Entire active application under `src/myloai/`.
 
 This is the canonical contract for visible application capabilities. A row describes behavior the application is expected to provide. Status reflects the current implementation state, not a promise about every backend/environment.
@@ -103,13 +103,13 @@ Backend availability, authentication, model availability, desktop environment, a
 | Agents | Save | implemented | Agent profiles persist to JSON. | `AgentManager` |
 | Agents | Import | implemented | Agent JSON can be imported. | `AgentBuilderDialog` |
 | Agents | Export | implemented | Current agent can be exported as JSON. | `AgentBuilderDialog` |
-| Agents | Execution integration | partial | Profiles contain model/reasoning/behavior/memory/tool/plugin policy fields, but the active chat path does not yet make those profiles the generation/execution authority. | `core/domain.py`, `ui/dialogs.py`, chat/controller paths |
+| Agents | Execution integration | implemented | The toolbar agent picker applies the agent's model, linked system prompt, and reasoning mode to the chat session; generation resolves the agent's model and per-session parameters; sessions persist `agent_id`. | `core/managers.py` (`apply_agent_to_session`), `ui/main_window.py` |
 
 ## 8. Plugins
 
 | Area | Action | Status | Contract / current behavior | Primary implementation |
 |---|---|---|---|---|
-| Plugins | Install | partial | Copies a selected Python file into the configured plugin directory; trust/enable remain separate lifecycle operations. | `ui/controllers/plugin_controller.py` |
+| Plugins | Install | implemented | Validates the static manifest, then copies the selected Python file into the configured plugin directory; the Plugin Manager dialog exposes trust, enable/disable, reload, and uninstall. | `core/managers.py` (`PluginManager.install`), `ui/controllers/plugin_controller.py`, `ui/dialogs.py` |
 | Plugins | Discover | implemented | Reads static manifests without importing plugin code. | `PluginManager` |
 | Plugins | Validate | implemented | Requires manifest `id`, `name`, and `version`, with runtime ID consistency validation. | `PluginManager` |
 | Plugins | Trust | implemented | Explicitly records trust for a valid discovered plugin. | `PluginManager` |
@@ -118,7 +118,7 @@ Backend availability, authentication, model availability, desktop environment, a
 | Plugins | Reload | implemented | Disables loaded plugins and reloads enabled plugins. | `PluginManager` |
 | Plugins | Untrust | implemented | Disables the plugin and removes persisted trust. | `PluginManager` |
 | Plugins | Remove | implemented | Disables/untrusts, clears persisted state, and removes the plugin file. | `PluginManager` |
-| Plugins | Plugin context | implemented | Provides tool, command, chat-interceptor, memory-provider and UI-panel registration points. | `PluginContext` |
+| Plugins | Plugin context | implemented | Provides tool, command, chat-interceptor, memory-provider and UI-panel registration points; registrations are tracked per plugin and removed on disable/reload. | `PluginContext` |
 | Plugins | Startup isolation | implemented | Invalid or failing enabled plugins are skipped instead of preventing application startup. | `PluginManager.load_enabled()` |
 
 ## 9. Parameters

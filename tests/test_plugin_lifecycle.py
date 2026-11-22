@@ -96,3 +96,91 @@ def test_plugin_discovery_reports_manifest_validation_error(tmp_path):
 
     with pytest.raises(ValueError):
         manager.trust("invalid")
+
+
+def make_registering_plugin(path: Path) -> None:
+    path.write_text(
+        """
+class Plugin:
+    manifest = {"id": "reg", "name": "Registering Plugin", "version": "1.0.0"}
+
+    def activate(self, context):
+        context.register_tool("t", lambda: 1)
+        context.register_command("c", lambda: None)
+        context.register_chat_interceptor(lambda messages: messages)
+        context.register_memory_provider("m", lambda: "memory")
+
+    def deactivate(self):
+        pass
+""",
+        encoding="utf-8",
+    )
+
+
+def test_plugin_registrations_are_removed_on_disable(tmp_path):
+    plugin_path = tmp_path / "reg.py"
+    make_registering_plugin(plugin_path)
+    config = FakeConfig(tmp_path)
+    context = PluginContext(SimpleNamespace(), config)
+    manager = PluginManager(config, context)
+
+    manager.trust("reg")
+    manager.enable(plugin_path)
+    assert context.tools.get("t") is not None
+    assert context.commands.get("c") is not None
+    assert len(context.chat_interceptors) == 1
+    assert context.memory_providers.get("m") is not None
+
+    manager.disable("reg")
+    assert "t" not in context.tools
+    assert "c" not in context.commands
+    assert context.chat_interceptors == []
+    assert "m" not in context.memory_providers
+
+
+def test_plugin_failed_activation_cleans_up_partial_registrations(tmp_path):
+    plugin_path = tmp_path / "boom.py"
+    plugin_path.write_text(
+        """
+class Plugin:
+    manifest = {"id": "boom", "name": "Boom", "version": "1.0.0"}
+
+    def activate(self, context):
+        context.register_tool("leaked", lambda: 1)
+        raise RuntimeError("activation failed")
+
+    def deactivate(self):
+        pass
+""",
+        encoding="utf-8",
+    )
+    config = FakeConfig(tmp_path)
+    context = PluginContext(SimpleNamespace(), config)
+    manager = PluginManager(config, context)
+
+    manager.trust("boom")
+    with pytest.raises(RuntimeError):
+        manager.enable(plugin_path)
+    assert "leaked" not in context.tools
+    assert "boom" not in manager.loaded
+
+
+def test_install_validates_manifest_before_copying(tmp_path):
+    plugins_dir = tmp_path / "plugins"
+    plugins_dir.mkdir()
+    source_dir = tmp_path / "source"
+    source_dir.mkdir()
+    config = FakeConfig(plugins_dir)
+    manager = PluginManager(config, PluginContext(SimpleNamespace(), config))
+
+    valid = source_dir / "good.py"
+    make_plugin(valid)
+    dest = manager.install(valid)
+    assert dest == plugins_dir / "good.py"
+    assert dest.exists()
+
+    invalid = source_dir / "bad.py"
+    invalid.write_text("class Plugin:\n    manifest = {'id': 'bad'}\n", encoding="utf-8")
+    with pytest.raises(ValueError):
+        manager.install(invalid)
+    assert not (plugins_dir / "bad.py").exists()

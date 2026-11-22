@@ -43,6 +43,7 @@ from myloai.core.managers import (
     PluginManager,
     PromptManager,
     SessionManager,
+    apply_agent_to_session,
 )
 from myloai.ui.chat_view import (
     assistant_label,
@@ -250,6 +251,11 @@ class MainWindow(QMainWindow):
         self.model_combo.currentTextChanged.connect(self.model_changed)
         self.toolbar.addWidget(QLabel(" Model "))
         self.toolbar.addWidget(self.model_combo)
+        self.agent_combo = QComboBox()
+        self.agent_combo.currentTextChanged.connect(self.agent_changed)
+        self.toolbar.addWidget(QLabel(" Agent "))
+        self.toolbar.addWidget(self.agent_combo)
+        self.refresh_agents()
         self._create_docks()
 
     def _create_docks(self) -> None:
@@ -334,8 +340,8 @@ class MainWindow(QMainWindow):
         self.addDockWidget(area, dock)
         return dock
 
-    def add_plugin_panel(self, title: str, widget: QWidget, area: Any = None) -> None:
-        self._dock(title, widget, area or Qt.DockWidgetArea.RightDockWidgetArea)
+    def add_plugin_panel(self, title: str, widget: QWidget, area: Any = None) -> QDockWidget:
+        return self._dock(title, widget, area or Qt.DockWidgetArea.RightDockWidgetArea)
 
     def _menu_action(self, menu, text, slot, shortcut: str | None = None):
         action = QAction(text, self)
@@ -433,6 +439,34 @@ class MainWindow(QMainWindow):
         w = self.tabs.currentWidget()
         return w if isinstance(w, ChatTab) else None
 
+    def refresh_agents(self, select_id: str = "") -> None:
+        self.agent_combo.blockSignals(True)
+        current = select_id or self.agent_combo.currentData() or ""
+        self.agent_combo.clear()
+        self.agent_combo.addItem("(none)", "")
+        for agent in self.agents.list():
+            self.agent_combo.addItem(agent.name, agent.id)
+        idx = self.agent_combo.findData(current)
+        self.agent_combo.setCurrentIndex(max(idx, 0))
+        self.agent_combo.blockSignals(False)
+
+    def selected_agent(self):
+        agent_id = self.agent_combo.currentData() or ""
+        return self.agents.get(agent_id) if agent_id else None
+
+    def agent_changed(self, _name: str) -> None:
+        tab = self.current_tab()
+        agent = self.selected_agent()
+        if tab is not None and agent is not None:
+            apply_agent_to_session(tab.session, agent, self.prompts.list())
+            if agent.model:
+                idx = self.model_combo.findText(agent.model)
+                if idx >= 0:
+                    self.model_combo.setCurrentIndex(idx)
+            self.render_tab(tab)
+            self.sessions.save(tab.session)
+            self.refresh_sessions()
+
     def new_chat(self) -> None:
         session = ChatSession(
             provider=self.config.active_provider,
@@ -441,6 +475,9 @@ class MainWindow(QMainWindow):
         )
         if session.system_prompt:
             session.messages.append(ChatMessage("system", session.system_prompt))
+        agent = self.selected_agent()
+        if agent is not None:
+            apply_agent_to_session(session, agent, self.prompts.list())
         tab = ChatTab(session)
         self._wire_chat_tab(tab)
         self.tabs.addTab(tab, session.title)
@@ -464,7 +501,8 @@ class MainWindow(QMainWindow):
     def _generate(self, tab: ChatTab) -> None:
         profile = self.config.active_profile()
         backend = create_backend(profile)
-        model = self.model_combo.currentText() or profile.default_model
+        agent = self.agents.get(tab.session.agent_id) if tab.session.agent_id else None
+        model = (agent.model if agent and agent.model else "") or self.model_combo.currentText() or profile.default_model
         if not model:
             QMessageBox.warning(self, "No model", "Select or configure a model before generating.")
             return
@@ -475,6 +513,7 @@ class MainWindow(QMainWindow):
         for interceptor in self.plugin_context.chat_interceptors:
             messages = interceptor(messages)
         options = self.config.parameters.to_backend_options()
+        options.update(tab.session.parameters or {})
         request_preview = {
             "provider": profile.name,
             "url": profile.base_url,
@@ -694,6 +733,7 @@ class MainWindow(QMainWindow):
 
     def open_session(self, session_id: str) -> None:
         session = self.sessions.load(session_id)
+        self.refresh_agents(select_id=session.agent_id)
         tab = ChatTab(session)
         self._wire_chat_tab(tab)
         self.tabs.addTab(tab, session.title)
@@ -928,8 +968,13 @@ class MainWindow(QMainWindow):
 
     def open_agent_builder(self) -> None:
         AgentBuilderDialog(
-            self.agents, [m.name for m in self.models], list(self.plugins.loaded), self
+            self.agents,
+            [m.name for m in self.models],
+            list(self.plugins.loaded),
+            self.prompts.list(),
+            self,
         ).exec()
+        self.refresh_agents()
 
     def import_agent(self) -> None:
         self.open_agent_builder()

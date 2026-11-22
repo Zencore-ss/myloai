@@ -320,6 +320,7 @@ class AgentBuilderDialog(QDialog):
         manager: AgentManager,
         models: list[str],
         plugins: list[str],
+        prompts: list[PromptRecord],
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
@@ -332,6 +333,10 @@ class AgentBuilderDialog(QDialog):
         self.name = QLineEdit("New Agent")
         self.model = QComboBox()
         self.model.addItems(models)
+        self.system_prompt = QComboBox()
+        self.system_prompt.addItem("(none)", "")
+        for prompt in prompts:
+            self.system_prompt.addItem(f"{prompt.category}: {prompt.title}", prompt.id)
         self.reasoning = QComboBox()
         self.reasoning.addItems(["normal", "thinking", "planner"])
         self.behavior = QComboBox()
@@ -346,6 +351,7 @@ class AgentBuilderDialog(QDialog):
         for label, widget in [
             ("Name", self.name),
             ("Model", self.model),
+            ("System Prompt", self.system_prompt),
             ("Reasoning", self.reasoning),
             ("Behavior", self.behavior),
             ("Memory", self.memory),
@@ -384,6 +390,8 @@ class AgentBuilderDialog(QDialog):
         self.current_id = a.id
         self.name.setText(a.name)
         self.model.setCurrentText(a.model)
+        idx = self.system_prompt.findData(a.system_prompt_id)
+        self.system_prompt.setCurrentIndex(max(idx, 0))
         self.reasoning.setCurrentText(a.reasoning_mode)
         self.behavior.setCurrentText(a.behavior)
         self.memory.setCurrentText(a.memory_mode)
@@ -399,6 +407,7 @@ class AgentBuilderDialog(QDialog):
         return AgentProfile(
             name=self.name.text(),
             model=self.model.currentText(),
+            system_prompt_id=self.system_prompt.currentData() or "",
             tools=[x.strip() for x in self.tools.text().split(",") if x.strip()],
             plugins=[x.strip() for x in self.plugins.text().split(",") if x.strip()],
             memory_mode=self.memory.currentText(),
@@ -434,17 +443,20 @@ class PluginManagerDialog(QDialog):
         self.setWindowTitle("Plugin Manager")
         self.resize(760, 480)
         self.manager = manager
-        self.table = QTableWidget(0, 5)
-        self.table.setHorizontalHeaderLabels(["Enabled", "ID", "Name", "Version", "Path/Error"])
+        self.table = QTableWidget(0, 6)
+        self.table.setHorizontalHeaderLabels(["Enabled", "Trusted", "ID", "Name", "Version", "Path/Error"])
         reload_btn = QPushButton("Reload Plugins")
         reload_btn.clicked.connect(self.reload_plugins)
-        save_btn = QPushButton("Apply Enable/Disable")
+        save_btn = QPushButton("Apply Enable/Trust")
         save_btn.clicked.connect(self.apply)
+        uninstall_btn = QPushButton("Uninstall Selected")
+        uninstall_btn.clicked.connect(self.uninstall_selected)
         layout = QVBoxLayout(self)
         layout.addWidget(self.table)
         row = QHBoxLayout()
         row.addWidget(save_btn)
         row.addWidget(reload_btn)
+        row.addWidget(uninstall_btn)
         row.addStretch()
         layout.addLayout(row)
         self.refresh()
@@ -461,9 +473,14 @@ class PluginManagerDialog(QDialog):
                 else "false"
             )
             enabled.setFlags(enabled.flags() | Qt.ItemFlag.ItemIsEditable)
+            trusted = QTableWidgetItem(
+                "true" if p.get("id", "") in self.manager.config.trusted_plugins else "false"
+            )
+            trusted.setFlags(trusted.flags() | Qt.ItemFlag.ItemIsEditable)
             for c, val in enumerate(
                 [
                     enabled,
+                    trusted,
                     p.get("id", ""),
                     p.get("name", ""),
                     p.get("version", ""),
@@ -477,11 +494,38 @@ class PluginManagerDialog(QDialog):
     def apply(self) -> None:
         for r, p in enumerate(self.plugins):
             pid = p.get("id", "")
+            if not pid or p.get("error"):
+                continue
             enabled = self.table.item(r, 0).text().lower() in {"true", "1", "yes", "enabled"}
-            if enabled and pid not in self.manager.loaded:
-                self.manager.enable(Path(p["path"]))
-            elif not enabled and pid in self.manager.loaded:
-                self.manager.disable(pid)
+            trusted = self.table.item(r, 1).text().lower() in {"true", "1", "yes", "trusted"}
+            try:
+                if trusted and pid not in self.manager.config.trusted_plugins:
+                    self.manager.trust(pid)
+                if not trusted and pid in self.manager.config.trusted_plugins:
+                    self.manager.untrust(pid)
+                if enabled and pid not in self.manager.loaded:
+                    self.manager.enable(Path(p["path"]))
+                elif not enabled and pid in self.manager.loaded:
+                    self.manager.disable(pid)
+            except (PermissionError, ValueError, OSError) as error:
+                QMessageBox.warning(self, "Plugin Manager", str(error))
+        self.refresh()
+
+    def uninstall_selected(self) -> None:
+        row = self.table.currentRow()
+        if row < 0 or row >= len(self.plugins):
+            return
+        pid = self.plugins[row].get("id", "")
+        if not pid or self.plugins[row].get("error"):
+            return
+        answer = QMessageBox.question(
+            self,
+            "Uninstall Plugin",
+            f"Uninstall plugin '{pid}'? This disables it, removes trust, and deletes the plugin file.",
+        )
+        if answer != QMessageBox.StandardButton.Yes:
+            return
+        self.manager.remove(pid)
         self.refresh()
 
     def reload_plugins(self) -> None:

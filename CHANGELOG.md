@@ -1,4 +1,21 @@
-## [Unreleased]
+## [2.1.0] - 2026-11-22
+
+### Added
+- Agent picker in the main toolbar: selecting an agent applies its model, linked system prompt, and reasoning mode to the current chat; new chats inherit the selected agent, opened sessions restore their agent, and `ChatSession` persists `agent_id`.
+- Agent Builder can now link an agent to a stored system prompt (`system_prompt_id`).
+- Plugin SDK: `PluginContext.register_memory_provider()` helper; plugin tools, commands, chat interceptors, memory providers, and UI panels are tracked per plugin and removed on disable/reload, with rollback on failed activation.
+- Plugin Manager dialog exposes trust/untrust and uninstall; Plugins > Install validates the static manifest before copying a plugin file.
+- Tests for agent application, plugin registration cleanup, failed-activation rollback, and install validation.
+
+### Fixed
+- Plugin modules were imported under the legacy `locallama_user_plugin_` name prefix; now `myloai_user_plugin_`.
+- Sample plugin referenced a nonexistent `main_window.terminal` attribute; it now uses the diagnostics `console_view`.
+
+### Documentation
+- Updated the Plugin SDK guide for memory providers, lifecycle cleanup, and install validation.
+- Feature matrix now records agent execution integration and plugin install as implemented.
+
+## [2.0.0] - 2026-11-08
 
 ### Changed
 - Broke the former `locallama_gui` Python namespace and established the conventional `src/myloai/` source-package layout.
@@ -16,6 +33,10 @@
 ### Migration Status
 - The previous `locallama-gui` repository and `locallama_gui` namespace are historical only. The active repository is `GR00T-User-706/myloai`.
 - No user-data compatibility migration is being maintained during this development reset. Existing local configuration/data paths are intentionally outside the current compatibility contract.
+
+### Documentation
+- Added project-specific standards for the MyLoAI desktop application, provider behavior, configuration, plugins, user documentation, and supported package formats.
+
 ## [1.2.12] - 2026-09-24
 
 ### Fixed
@@ -26,11 +47,6 @@
 
 ### Documentation
 - Kept Prompt Manager functionality aligned with the existing feature matrix and QA expectations.
-
-## [Unreleased]
-
-### Documentation
-- Added project-specific standards for the MyLoAI desktop application, provider behavior, configuration, plugins, user documentation, and supported package formats.
 
 ## [1.2.11] - 2026-09-24
 
