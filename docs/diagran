@@ -1,0 +1,23 @@
+                         MyLoAI Control Center
+                    ┌──────────────────────────┐
+                    │          GUI              │
+                    │      PySide6 / Qt         │
+                    └────────────┬─────────────┘
+                                 │
+                         MyLoAI core layer
+                                 │
+              ┌──────────────────┼──────────────────┐
+              │                  │                  │
+           Ollama            llama.cpp           OpenAI
+              │                  │                  │
+              └──────────────────┼──────────────────┘
+                                 │
+                         MCP Server Layer
+                                 │
+                 ┌───────────────┼───────────────┐
+                 │               │               │
+              Tools          Resources        Prompts
+                 │               │               │
+                 ▼               ▼               ▼
+             MyLoAI's       MyLoAI state      workflows
+             capabilities
